@@ -41,6 +41,10 @@ export type WorkerRequest =
 
 // ── Responses (worker → main) ─────────────────────────────────────────────────
 
+export type ReadyResponse = {
+  type: 'ready';
+};
+
 export type InitResponse = {
   type: 'init:ok';
   version: string;
@@ -85,6 +89,7 @@ export type ErrorResponse = {
 };
 
 export type WorkerResponse =
+  | ReadyResponse
   | InitResponse
   | PongResponse
   | CompileOkResponse
