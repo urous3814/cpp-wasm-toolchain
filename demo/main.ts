@@ -1,8 +1,9 @@
-import { Toolchain } from '../packages/loader/src/index'
+import { loadManifest, resolveToolchain } from '../packages/loader/src/index'
 
-const TOOLCHAIN_BASE_URL = import.meta.env.VITE_TOOLCHAIN_BASE_URL ?? '/dist/cpp-wasm-toolchain/0.1.0'
-
-const toolchain = new Toolchain(TOOLCHAIN_BASE_URL)
+// In production, set via bundler (e.g. Vite: VITE_TOOLCHAIN_BASE_URL).
+const TOOLCHAIN_BASE_URL: string =
+    (import.meta as unknown as { env?: Record<string, string> }).env?.VITE_TOOLCHAIN_BASE_URL
+        ?? '/dist/cpp-wasm-toolchain/0.1.0'
 
 const codeEl = document.getElementById('code') as HTMLTextAreaElement
 const outputEl = document.getElementById('output') as HTMLPreElement
@@ -11,24 +12,20 @@ const runBtn = document.getElementById('run') as HTMLButtonElement
 
 async function run() {
     outputEl.textContent = ''
-    statusEl.textContent = 'Compiling...'
+    statusEl.textContent = 'Loading toolchain...'
     runBtn.disabled = true
 
     try {
-        const source = codeEl.value
-        const result = await toolchain.compile({
-            source,
-            filename: 'main.cpp',
-            stdout: (s) => { outputEl.textContent += s },
-            stderr: (s) => { outputEl.textContent += s },
-        })
+        const manifestUrl = TOOLCHAIN_BASE_URL.replace(/\/$/, '') + '/manifest.json'
+        const manifest = await loadManifest(manifestUrl)
+        const tc = resolveToolchain(manifestUrl, manifest)
 
-        if (!result.ok) {
-            statusEl.textContent = 'Compile error'
-            outputEl.textContent = result.diagnostics
-        } else {
-            statusEl.textContent = 'Done'
-        }
+        statusEl.textContent = `Toolchain ${tc.manifest.version} loaded`
+        outputEl.textContent =
+            `compiler:  ${tc.compilerWasmUrl}\n` +
+            `linker:    ${tc.linkerWasmUrl}\n` +
+            `sysroot:   ${tc.sysrootIncludeUrl}\n` +
+            `\n[demo] Full compilation not yet implemented.\n`
     } catch (e) {
         statusEl.textContent = 'Error'
         outputEl.textContent = String(e)
