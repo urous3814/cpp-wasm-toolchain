@@ -25,6 +25,9 @@ importers:
       '@cpp-wasm-toolchain/loader':
         specifier: workspace:*
         version: link:../loader
+      '@cpp-wasm-toolchain/runtime':
+        specifier: workspace:*
+        version: link:../runtime
 
 packages:
 

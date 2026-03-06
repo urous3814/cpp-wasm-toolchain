@@ -1,8 +1,9 @@
-import { Toolchain } from '@cpp-wasm-toolchain/loader'
+import { loadManifest, resolveToolchain, LoadedToolchain } from '@cpp-wasm-toolchain/loader'
+import { runWasiProgram } from '@cpp-wasm-toolchain/runtime'
 
 export type WorkerRequest =
-    | { type: 'compile'; source: string; filename: string; flags?: string[] }
-    | { type: 'run'; wasmBytes: Uint8Array; stdin?: string }
+    | { type: 'compile'; source: string; filename: string; flags?: string[]; baseUrl?: string }
+    | { type: 'run'; wasmBytes: ArrayBuffer; stdin?: string; baseUrl?: string }
 
 export type WorkerResponse =
     | { type: 'ready' }
@@ -10,44 +11,41 @@ export type WorkerResponse =
     | { type: 'compile:error'; diagnostics: string }
     | { type: 'run:stdout'; text: string }
     | { type: 'run:stderr'; text: string }
-    | { type: 'run:done' }
+    | { type: 'run:done'; exitCode: number; timedOut: boolean }
     | { type: 'error'; message: string }
 
 declare const self: Worker
 
-let toolchain: Toolchain | null = null
+let toolchain: LoadedToolchain | null = null
 
-self.addEventListener('message', async (event: MessageEvent<WorkerRequest & { baseUrl?: string }>) => {
+self.addEventListener('message', async (event: MessageEvent<WorkerRequest>) => {
     const req = event.data
 
     try {
-        if (!toolchain) {
-            if (!req.baseUrl) throw new Error('baseUrl required for first message')
-            toolchain = new Toolchain(req.baseUrl)
+        // Lazily load the toolchain manifest on first message that provides baseUrl.
+        if (!toolchain && req.baseUrl) {
+            const manifestUrl = req.baseUrl.replace(/\/$/, '') + '/manifest.json'
+            const manifest = await loadManifest(manifestUrl)
+            toolchain = resolveToolchain(manifestUrl, manifest)
         }
 
         if (req.type === 'compile') {
-            const result = await toolchain.compile({
-                source: req.source,
-                filename: req.filename,
-                flags: req.flags,
-            })
-            self.postMessage(result.ok
-                ? { type: 'compile:ok', diagnostics: result.diagnostics }
-                : { type: 'compile:error', diagnostics: result.diagnostics }
-            )
+            // Full compilation is not yet implemented; placeholder response.
+            self.postMessage({ type: 'compile:error', diagnostics: '[worker] compile not yet implemented' } satisfies WorkerResponse)
+
         } else if (req.type === 'run') {
             const mod = await WebAssembly.compile(req.wasmBytes)
-            await toolchain.run(mod, {
+            const result = await runWasiProgram({
+                wasmModule: mod,
                 stdin: req.stdin,
-                stdout: (text) => self.postMessage({ type: 'run:stdout', text }),
-                stderr: (text) => self.postMessage({ type: 'run:stderr', text }),
+                onStdout: (text: string) => self.postMessage({ type: 'run:stdout', text } satisfies WorkerResponse),
+                onStderr: (text: string) => self.postMessage({ type: 'run:stderr', text } satisfies WorkerResponse),
             })
-            self.postMessage({ type: 'run:done' })
+            self.postMessage({ type: 'run:done', exitCode: result.exitCode, timedOut: result.timedOut } satisfies WorkerResponse)
         }
     } catch (e) {
-        self.postMessage({ type: 'error', message: String(e) })
+        self.postMessage({ type: 'error', message: String(e) } satisfies WorkerResponse)
     }
 })
 
-self.postMessage({ type: 'ready' })
+self.postMessage({ type: 'ready' } satisfies WorkerResponse)
