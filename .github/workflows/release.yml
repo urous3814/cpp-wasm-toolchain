@@ -1,0 +1,44 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Bootstrap
+        run: |
+          sudo apt-get install -y cmake ninja-build
+          ./toolchain/scripts/bootstrap-macos.sh
+
+      - name: Fetch sources
+        run: ./toolchain/scripts/fetch-sources.sh
+
+      - name: Build sysroot
+        run: ./toolchain/scripts/build-sysroot.sh
+
+      - name: Build host LLVM
+        run: ./toolchain/scripts/build-host-llvm.sh
+
+      - name: Build browser LLVM
+        run: ./toolchain/scripts/build-browser-llvm.sh
+
+      - name: Validate sysroot
+        run: ./toolchain/scripts/validate-sysroot.sh
+
+      - name: Package toolchain
+        run: ./toolchain/scripts/package-toolchain.sh
+
+      - name: Smoke test
+        run: ./toolchain/scripts/smoke-test.sh
+
+      - name: Upload release artifact
+        uses: softprops/action-gh-release@v1
+        with:
+          files: dist/cpp-wasm-toolchain-*.tar.gz
