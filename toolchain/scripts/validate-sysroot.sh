@@ -14,11 +14,12 @@ check_header() {
     fi
 }
 
-check_header "vector"
-check_header "algorithm"
-check_header "string"
-check_header "map"
-check_header "iostream"
+# wasi-sdk 20+: C++ headers are target-scoped under include/wasm32-wasi/c++/v1/
+check_header "wasm32-wasi/c++/v1/vector"
+check_header "wasm32-wasi/c++/v1/algorithm"
+check_header "wasm32-wasi/c++/v1/string"
+check_header "wasm32-wasi/c++/v1/map"
+check_header "wasm32-wasi/c++/v1/iostream"
 
 if [ ! -d "$SYSROOT/lib/wasm32-wasi" ]; then
     echo "[sysroot] missing library directory: lib/wasm32-wasi" >&2
