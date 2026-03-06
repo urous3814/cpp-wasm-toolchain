@@ -1,30 +1,80 @@
-* {
-    box-sizing: border-box;
-}
+* { box-sizing: border-box; }
 
 body {
     font-family: system-ui, sans-serif;
-    max-width: 800px;
+    max-width: 860px;
     margin: 2rem auto;
     padding: 0 1rem;
     background: #1e1e1e;
     color: #d4d4d4;
 }
 
-h1 {
-    font-size: 1.4rem;
-    margin-bottom: 1.5rem;
-    color: #569cd6;
+/* ── Header ── */
+
+header {
+    display: flex;
+    align-items: baseline;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
 }
 
-label {
-    display: block;
+h1 {
+    font-size: 1.3rem;
+    color: #569cd6;
+    margin: 0;
+}
+
+.version {
+    font-size: 0.75rem;
+    color: #858585;
+    font-family: monospace;
+}
+
+/* ── Toolchain status bar ── */
+
+.info-bar {
     font-size: 0.8rem;
+    padding: 0.4rem 0.75rem;
+    border-radius: 4px;
+    margin-bottom: 1rem;
+    background: #252526;
+    border: 1px solid #3c3c3c;
+    color: #858585;
+    font-family: monospace;
+    word-break: break-all;
+}
+
+.info-ok  { border-color: #4ec9b0; color: #4ec9b0; }
+.info-err { border-color: #f44747; color: #f44747; }
+
+/* ── Labels ── */
+
+label, .label {
+    display: block;
+    font-size: 0.75rem;
     color: #858585;
     margin-bottom: 0.25rem;
     text-transform: uppercase;
     letter-spacing: 0.05em;
 }
+
+/* ── Example buttons ── */
+
+.examples {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.examples .label {
+    margin: 0;
+}
+
+/* ── Editor ── */
+
+.editor { margin-bottom: 0.5rem; }
 
 textarea {
     width: 100%;
@@ -38,11 +88,13 @@ textarea {
     resize: vertical;
 }
 
+/* ── Controls ── */
+
 .controls {
     display: flex;
     align-items: center;
     gap: 1rem;
-    margin: 1rem 0;
+    margin: 0.75rem 0;
 }
 
 button {
@@ -50,17 +102,35 @@ button {
     color: #fff;
     border: none;
     border-radius: 4px;
-    padding: 0.5rem 1.25rem;
+    padding: 0.4rem 1rem;
     font-size: 0.875rem;
     cursor: pointer;
+    white-space: nowrap;
 }
 
-button:hover { background: #1177bb; }
+button:hover    { background: #1177bb; }
 button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ── Status ── */
 
 #status {
     font-size: 0.8rem;
-    color: #858585;
+    font-family: monospace;
+}
+
+.status-ok  { color: #4ec9b0; }
+.status-err { color: #f44747; }
+
+/* ── Output columns ── */
+
+.output-section {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+@media (max-width: 600px) {
+    .output-section { grid-template-columns: 1fr; }
 }
 
 pre {
@@ -73,4 +143,5 @@ pre {
     min-height: 4rem;
     white-space: pre-wrap;
     word-break: break-word;
+    margin: 0;
 }

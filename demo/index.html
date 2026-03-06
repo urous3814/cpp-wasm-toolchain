@@ -7,35 +7,42 @@
     <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-    <h1>cpp-wasm-toolchain demo</h1>
+    <header>
+        <h1>cpp-wasm-toolchain demo</h1>
+        <span id="version" class="version"></span>
+    </header>
 
-    <div class="editor">
+    <section class="toolchain-status">
+        <div id="toolchain-info" class="info-bar">Loading toolchain…</div>
+    </section>
+
+    <section class="examples">
+        <span class="label">Examples</span>
+        <button data-example="hello.cpp">hello.cpp</button>
+        <button data-example="vector_sort.cpp">vector_sort.cpp</button>
+    </section>
+
+    <section class="editor">
         <label for="code">C++ Source</label>
-        <textarea id="code" rows="16" spellcheck="false">
-#include &lt;iostream&gt;
-#include &lt;vector&gt;
-#include &lt;algorithm&gt;
+        <textarea id="code" rows="16" spellcheck="false"></textarea>
+    </section>
 
-int main() {
-    std::vector&lt;int&gt; v = {5, 3, 1, 4, 2};
-    std::sort(v.begin(), v.end());
-    for (int x : v) std::cout &lt;&lt; x &lt;&lt; " ";
-    std::cout &lt;&lt; std::endl;
-    return 0;
-}
-        </textarea>
-    </div>
-
-    <div class="controls">
+    <section class="controls">
         <button id="run">Run</button>
         <span id="status"></span>
-    </div>
+    </section>
 
-    <div class="output">
-        <label>Output</label>
-        <pre id="output"></pre>
-    </div>
+    <section class="output-section">
+        <div class="output-col">
+            <label>stdout</label>
+            <pre id="stdout"></pre>
+        </div>
+        <div class="output-col">
+            <label>stderr</label>
+            <pre id="stderr"></pre>
+        </div>
+    </section>
 
-    <script type="module" src="main.ts"></script>
+    <script type="module" src="main.js"></script>
 </body>
 </html>
