@@ -1,48 +1,92 @@
 #!/usr/bin/env bash
-set -e
+set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+
 source "$SCRIPT_DIR/../config/versions.env"
+# Environment variable takes precedence over versions.env
+VERSION="${TOOLCHAIN_VERSION}"
 
-WORKSPACE="$SCRIPT_DIR/../workspace"
-BROWSER_OUT="$WORKSPACE/out/browser-llvm"
-SYSROOT_OUT="$WORKSPACE/out/sysroot"
-DIST_DIR="$(pwd)/dist"
+BROWSER_OUT="$REPO_ROOT/toolchain/workspace/out/browser-toolchain"
+SYSROOT_OUT="$REPO_ROOT/toolchain/workspace/out/sysroot"
+RUNTIME_DIST="$REPO_ROOT/packages/runtime/dist"
+EXAMPLES="$REPO_ROOT/examples"
+
 PKG_NAME="cpp-wasm-toolchain"
-PKG_DIR="$DIST_DIR/$PKG_NAME/$TOOLCHAIN_VERSION"
+PKG_DIR="$REPO_ROOT/dist/$PKG_NAME/$VERSION"
+ARCHIVE="$REPO_ROOT/dist/$PKG_NAME-$VERSION.tar.gz"
 
-echo "==> Validating artifacts before packaging"
-"$SCRIPT_DIR/validate-sysroot.sh"
+# ── Validate required source artifacts ───────────────────────────────────────
 
-for artifact in clang.wasm clang.mjs wasm-ld.wasm wasm-ld.mjs; do
-    [ -f "$BROWSER_OUT/$artifact" ] || {
-        echo "ERROR: Missing browser LLVM artifact: $artifact"
+echo "[package] validating sysroot"
+bash "$SCRIPT_DIR/validate-sysroot.sh"
+
+require_file() {
+    local path="$1"
+    if [ ! -f "$path" ]; then
+        echo "[package] ERROR: missing required file: $path" >&2
         exit 1
-    }
-done
+    fi
+}
 
-echo "==> Assembling package $PKG_NAME@$TOOLCHAIN_VERSION"
+echo "[package] validating browser toolchain artifacts"
+require_file "$BROWSER_OUT/clang.wasm"
+require_file "$BROWSER_OUT/wasm-ld.wasm"
+require_file "$RUNTIME_DIST/wasi-shim.js"
+
+# ── Assemble release directory ────────────────────────────────────────────────
+
+echo "[package] assembling $PKG_NAME@$VERSION"
 rm -rf "$PKG_DIR"
 mkdir -p "$PKG_DIR/compiler" "$PKG_DIR/linker" "$PKG_DIR/sysroot" "$PKG_DIR/runtime" "$PKG_DIR/examples"
 
-cp "$BROWSER_OUT/clang.mjs"      "$PKG_DIR/compiler/"
-cp "$BROWSER_OUT/clang.wasm"     "$PKG_DIR/compiler/"
-cp "$BROWSER_OUT/wasm-ld.mjs"    "$PKG_DIR/linker/"
-cp "$BROWSER_OUT/wasm-ld.wasm"   "$PKG_DIR/linker/"
-cp -r "$SYSROOT_OUT/include"     "$PKG_DIR/sysroot/"
-cp -r "$SYSROOT_OUT/lib"         "$PKG_DIR/sysroot/"
-cp "packages/runtime/src/wasi-shim.ts" "$PKG_DIR/runtime/wasi-shim.js"
-cp examples/*.c examples/*.cpp   "$PKG_DIR/examples/" 2>/dev/null || true
+# Required WASM artifacts
+cp "$BROWSER_OUT/clang.wasm"   "$PKG_DIR/compiler/"
+cp "$BROWSER_OUT/wasm-ld.wasm" "$PKG_DIR/linker/"
 
-echo "==> Generating manifest"
-TOOLCHAIN_VERSION="$TOOLCHAIN_VERSION" node "$SCRIPT_DIR/generate-manifest.mjs" "$PKG_DIR"
+# Optional JS/MJS loader wrappers
+for name in clang.js clang.mjs; do
+    [ -f "$BROWSER_OUT/$name" ] && cp "$BROWSER_OUT/$name" "$PKG_DIR/compiler/" || true
+done
+for name in wasm-ld.js wasm-ld.mjs; do
+    [ -f "$BROWSER_OUT/$name" ] && cp "$BROWSER_OUT/$name" "$PKG_DIR/linker/" || true
+done
 
-echo "==> Generating checksums"
-node "$SCRIPT_DIR/generate-checksums.mjs" "$PKG_DIR"
+# Sysroot
+cp -r "$SYSROOT_OUT/include"         "$PKG_DIR/sysroot/"
+cp -r "$SYSROOT_OUT/lib/wasm32-wasi" "$PKG_DIR/sysroot/lib/"
 
-echo "==> Creating archive"
-ARCHIVE="$DIST_DIR/$PKG_NAME-$TOOLCHAIN_VERSION.tar.gz"
-tar czf "$ARCHIVE" -C "$DIST_DIR/$PKG_NAME" "$TOOLCHAIN_VERSION"
+# Runtime shim
+cp "$RUNTIME_DIST/wasi-shim.js" "$PKG_DIR/runtime/"
 
-echo "==> Package ready: $ARCHIVE"
-ls -lh "$ARCHIVE"
+# Examples
+cp "$EXAMPLES/hello.cpp"       "$PKG_DIR/examples/"
+cp "$EXAMPLES/vector_sort.cpp" "$PKG_DIR/examples/"
+# Copy any remaining .c/.cpp examples without failing if none match
+find "$EXAMPLES" -maxdepth 1 \( -name "*.c" -o -name "*.cpp" \) \
+    ! -name "hello.cpp" ! -name "vector_sort.cpp" \
+    -exec cp {} "$PKG_DIR/examples/" \; 2>/dev/null || true
+
+# ── Generate manifest and checksums ──────────────────────────────────────────
+
+echo "[package] generating manifest"
+TOOLCHAIN_VERSION="$VERSION" node "$SCRIPT_DIR/generate-manifest.mjs"
+
+echo "[package] generating checksums"
+TOOLCHAIN_VERSION="$VERSION" node "$SCRIPT_DIR/generate-checksums.mjs"
+
+# ── Create tarball ────────────────────────────────────────────────────────────
+
+echo "[package] creating archive"
+tar czf "$ARCHIVE" -C "$(dirname "$PKG_DIR")" "$VERSION"
+
+# ── Summary ───────────────────────────────────────────────────────────────────
+
+PKG_SIZE="$(du -sh "$PKG_DIR" | cut -f1)"
+ARCHIVE_SIZE="$(du -sh "$ARCHIVE" | cut -f1)"
+
+echo ""
+echo "[package] done"
+echo "  package : $PKG_DIR ($PKG_SIZE)"
+echo "  tarball : $ARCHIVE ($ARCHIVE_SIZE)"
