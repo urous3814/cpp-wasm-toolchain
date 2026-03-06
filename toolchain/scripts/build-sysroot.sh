@@ -1,28 +1,31 @@
 #!/usr/bin/env bash
-set -e
+set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/../config/versions.env"
-
 WORKSPACE="$SCRIPT_DIR/../workspace"
-SRC_DIR="$WORKSPACE/src/wasi-sdk"
-OUT_DIR="$WORKSPACE/out/sysroot"
 
-echo "==> Building sysroot from wasi-sdk ${WASI_SDK_VERSION}"
+SRC="$WORKSPACE/src"
+BUILD="$WORKSPACE/build"
+OUT="$WORKSPACE/out"
 
-if [ ! -d "$SRC_DIR" ]; then
-    echo "ERROR: wasi-sdk source not found at $SRC_DIR"
-    echo "Run fetch-sources.sh first"
+if [ ! -d "$SRC/wasi-sdk" ]; then
+    echo "[sysroot] ERROR: wasi-sdk source not found at $SRC/wasi-sdk" >&2
+    echo "[sysroot] Run fetch-sources.sh first" >&2
     exit 1
 fi
 
-mkdir -p "$OUT_DIR"
+echo "[sysroot] configuring with CMake"
+cmake -G Ninja \
+    -B "$BUILD/sysroot" \
+    -S "$SRC/wasi-sdk" \
+    -DCMAKE_INSTALL_PREFIX="$OUT/sysroot"
 
-echo "==> Copying sysroot headers"
-cp -r "$SRC_DIR/share/wasi-sysroot/include" "$OUT_DIR/"
+echo "[sysroot] building and installing"
+ninja -C "$BUILD/sysroot" install
 
-echo "==> Copying sysroot libs"
-mkdir -p "$OUT_DIR/lib"
-cp -r "$SRC_DIR/share/wasi-sysroot/lib/wasm32-wasi" "$OUT_DIR/lib/"
+if [ ! -d "$OUT/sysroot/include" ]; then
+    echo "[sysroot] ERROR: include directory missing after build" >&2
+    exit 1
+fi
 
-echo "==> Sysroot built at $OUT_DIR"
+echo "[sysroot] sysroot built successfully"
