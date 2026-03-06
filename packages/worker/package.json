@@ -6,6 +6,7 @@
   "main": "src/worker.ts",
   "types": "src/worker.ts",
   "dependencies": {
-    "@cpp-wasm-toolchain/loader": "workspace:*"
+    "@cpp-wasm-toolchain/loader": "workspace:*",
+    "@cpp-wasm-toolchain/runtime": "workspace:*"
   }
 }

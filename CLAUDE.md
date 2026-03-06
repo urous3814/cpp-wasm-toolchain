@@ -125,6 +125,19 @@ Required passing tests before any release (`tests/smoke/`):
 
 ## Commit and Branching Workflow
 
+### Check current branch first
+
+**Before doing any work**, always verify which branch you are on:
+
+```bash
+git branch          # current branch
+git status          # uncommitted changes
+git log --oneline -5
+```
+
+The active branch determines where commits land. Wrong branch = wrong history.
+Refer to **[docs/branches.md](docs/branches.md)** for the full branch map, active branches, and status history. **Keep that file updated** whenever a branch is created, merged, or deleted.
+
 ### Commit frequency
 
 Commit **early and often** — after every logical unit of work, not at end of day. Each commit must leave the repository in a working state (scripts pass `bash -n`, TypeScript compiles).

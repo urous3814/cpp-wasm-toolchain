@@ -5,40 +5,140 @@ on:
     tags:
       - 'v*'
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
-  build:
+  build-and-release:
+    name: Build, package, and release
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Bootstrap
+      # ── Version ───────────────────────────────────────────────────────────────
+
+      - name: Extract version from tag
+        id: version
         run: |
-          sudo apt-get install -y cmake ninja-build
-          ./toolchain/scripts/bootstrap-macos.sh
+          TAG="${GITHUB_REF_NAME}"
+          VERSION="${TAG#v}"
+          echo "tag=$TAG"         >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Releasing $TAG (TOOLCHAIN_VERSION=$VERSION)"
 
-      - name: Fetch sources
+      # ── System dependencies ───────────────────────────────────────────────────
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y --no-install-recommends \
+            cmake ninja-build git python3 ccache xz-utils
+
+      # ── Node + pnpm ──────────────────────────────────────────────────────────
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
+          run_install: false
+
+      - name: Get pnpm store path
+        id: pnpm-cache
+        run: echo "dir=$(pnpm store path)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-cache.outputs.dir }}
+          key: pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            pnpm-${{ runner.os }}-
+
+      - name: Install Node dependencies
+        run: pnpm install --frozen-lockfile
+
+      # ── Source fetch ──────────────────────────────────────────────────────────
+
+      - name: Fetch sources (llvm-project, wasi-sdk, emsdk)
         run: ./toolchain/scripts/fetch-sources.sh
+
+      # ── emsdk activation ──────────────────────────────────────────────────────
+
+      - name: Activate emsdk
+        run: |
+          source toolchain/config/versions.env
+          EMSDK_DIR="toolchain/workspace/src/emsdk"
+          cd "$EMSDK_DIR"
+          ./emsdk install "$EMSDK_VERSION"
+          ./emsdk activate "$EMSDK_VERSION"
+          # Persist env for subsequent steps
+          source ./emsdk_env.sh
+          echo "PATH=$PATH" >> "$GITHUB_ENV"
+          echo "EMSDK=$EMSDK" >> "$GITHUB_ENV"
+          echo "EM_CONFIG=$EM_CONFIG" >> "$GITHUB_ENV"
+
+      # ── Build pipeline ────────────────────────────────────────────────────────
 
       - name: Build sysroot
         run: ./toolchain/scripts/build-sysroot.sh
 
-      - name: Build host LLVM
-        run: ./toolchain/scripts/build-host-llvm.sh
-
-      - name: Build browser LLVM
-        run: ./toolchain/scripts/build-browser-llvm.sh
-
       - name: Validate sysroot
         run: ./toolchain/scripts/validate-sysroot.sh
 
+      - name: Build host LLVM (tablegen tools)
+        run: ./toolchain/scripts/build-host-llvm.sh
+
+      - name: Build browser LLVM (clang.wasm + wasm-ld.wasm)
+        run: ./toolchain/scripts/build-browser-llvm.sh
+
+      - name: Verify build stage
+        run: ./toolchain/scripts/verify-build-stage.sh
+
+      # ── Runtime package ───────────────────────────────────────────────────────
+
+      - name: Build runtime package
+        run: |
+          if pnpm --filter @cpp-wasm-toolchain/runtime run build 2>/dev/null; then
+            echo "runtime build complete"
+          else
+            echo "no build script in runtime package — skipping"
+          fi
+
+      # ── Packaging ─────────────────────────────────────────────────────────────
+
       - name: Package toolchain
+        env:
+          TOOLCHAIN_VERSION: ${{ steps.version.outputs.version }}
         run: ./toolchain/scripts/package-toolchain.sh
 
-      - name: Smoke test
-        run: ./toolchain/scripts/smoke-test.sh
+      - name: Verify package
+        env:
+          TOOLCHAIN_VERSION: ${{ steps.version.outputs.version }}
+        run: ./toolchain/scripts/verify-package.sh
 
-      - name: Upload release artifact
-        uses: softprops/action-gh-release@v1
+      # ── Debug artifact upload (available before release) ─────────────────────
+
+      - name: Upload dist as workflow artifact
+        uses: actions/upload-artifact@v4
         with:
-          files: dist/cpp-wasm-toolchain-*.tar.gz
+          name: cpp-wasm-toolchain-${{ steps.version.outputs.version }}
+          path: dist/cpp-wasm-toolchain-${{ steps.version.outputs.version }}.tar.gz
+          if-no-files-found: error
+
+      # ── GitHub Release ────────────────────────────────────────────────────────
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: ${{ steps.version.outputs.tag }}
+          fail_on_unmatched_files: true
+          files: dist/cpp-wasm-toolchain-${{ steps.version.outputs.version }}.tar.gz

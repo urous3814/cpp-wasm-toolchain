@@ -1,55 +1,45 @@
 #!/usr/bin/env bash
-set -e
+set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+
 source "$SCRIPT_DIR/../config/versions.env"
 
-TESTS_DIR="$(pwd)/tests/smoke"
-WORKSPACE="$SCRIPT_DIR/../workspace"
-BROWSER_OUT="$WORKSPACE/out/browser-llvm"
-SYSROOT_OUT="$WORKSPACE/out/sysroot"
-CLANG="$BROWSER_OUT/clang"
-PASS=0
-FAIL=0
-
-echo "==> Running smoke tests"
-
-run_test() {
-    local name="$1"
-    local src="$2"
-    local expect_fail="${3:-false}"
-
-    echo -n "    $name ... "
-    local out
-    if out=$("$CLANG" \
-        --target=wasm32-wasi \
-        --sysroot="$SYSROOT_OUT" \
-        -o /dev/null "$src" 2>&1); then
-        if [ "$expect_fail" = "true" ]; then
-            echo "FAIL (expected compiler error but succeeded)"
-            FAIL=$((FAIL + 1))
-        else
-            echo "OK"
-            PASS=$((PASS + 1))
-        fi
-    else
-        if [ "$expect_fail" = "true" ] && [ -n "$out" ]; then
-            echo "OK (expected error)"
-            PASS=$((PASS + 1))
-        else
-            echo "FAIL"
-            echo "      $out"
-            FAIL=$((FAIL + 1))
-        fi
-    fi
+step() {
+    echo ""
+    echo "[smoke] ── $1"
 }
 
-run_test "hello.c"           "$TESTS_DIR/hello.c"
-run_test "hello.cpp"         "$TESTS_DIR/hello.cpp"
-run_test "vector_sort.cpp"   "$TESTS_DIR/vector_sort.cpp"
-run_test "string_map.cpp"    "$TESTS_DIR/string_map.cpp"
-run_test "compile_error.cpp" "$TESTS_DIR/compile_error.cpp" true
+# ── Validation steps ──────────────────────────────────────────────────────────
+
+step "validate-sysroot"
+bash "$SCRIPT_DIR/validate-sysroot.sh"
+
+step "validate-browser-toolchain"
+bash "$SCRIPT_DIR/validate-browser-toolchain.sh"
+
+step "smoke-test-browser-toolchain"
+bash "$SCRIPT_DIR/smoke-test-browser-toolchain.sh"
+
+step "node: browser-toolchain-smoke.mjs"
+node "$REPO_ROOT/tests/smoke/browser-toolchain-smoke.mjs"
+
+step "node: runtime-smoke.mjs"
+node "$REPO_ROOT/tests/smoke/runtime-smoke.mjs"
+
+# ── Package verification (optional — only if package has been assembled) ──────
+
+ARCHIVE="$REPO_ROOT/dist/cpp-wasm-toolchain-${TOOLCHAIN_VERSION}.tar.gz"
+if [ -f "$ARCHIVE" ] || [ -d "$REPO_ROOT/dist/cpp-wasm-toolchain/${TOOLCHAIN_VERSION}" ]; then
+    step "verify-package"
+    bash "$SCRIPT_DIR/verify-package.sh"
+else
+    echo ""
+    echo "[smoke] skipping verify-package (package not yet assembled)"
+fi
+
+# ── Result ────────────────────────────────────────────────────────────────────
 
 echo ""
-echo "==> Results: $PASS passed, $FAIL failed"
-[ "$FAIL" -eq 0 ] || exit 1
+echo "[smoke] all smoke tests passed"

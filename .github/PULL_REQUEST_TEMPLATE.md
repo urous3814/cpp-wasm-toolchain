@@ -1,19 +1,21 @@
 ## Summary
 
-Describe the change.
+<!-- 1–3 sentences: what changed and why. -->
 
 ## Changes
 
-- change 1
-- change 2
+-
+-
 
 ## Tests
 
-- smoke test
-- example compile
+- [ ] smoke tests pass (`node tests/smoke/runtime-smoke.mjs`)
+- [ ] `pnpm typecheck` passes
+- [ ] bash script syntax valid (`bash -n toolchain/scripts/*.sh`)
+- [ ] CI green on this branch
 
 ## Checklist
 
-- [ ] CI passed
-- [ ] documentation updated
-- [ ] commit messages follow convention
+- [ ] Commits follow `type(scope): description` convention
+- [ ] Documentation updated (if a public API or build contract changed)
+- [ ] `docs/branches.md` updated (if a branch was created or merged)

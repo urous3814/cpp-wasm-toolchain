@@ -9,6 +9,10 @@
     "build:llvm-host": "./toolchain/scripts/build-host-llvm.sh",
     "build:llvm-browser": "./toolchain/scripts/build-browser-llvm.sh",
     "package": "./toolchain/scripts/package-toolchain.sh",
-    "test": "./toolchain/scripts/smoke-test.sh"
+    "test": "./toolchain/scripts/smoke-test.sh",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0"
   }
 }

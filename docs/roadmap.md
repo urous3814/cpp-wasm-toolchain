@@ -78,10 +78,10 @@ Each milestone has a clear goal, concrete deliverables, and a definition of done
 
 **Deliverables:**
 
-- `toolchain/workspace/out/browser-llvm/clang.wasm`
-- `toolchain/workspace/out/browser-llvm/clang.mjs`
-- `toolchain/workspace/out/browser-llvm/wasm-ld.wasm`
-- `toolchain/workspace/out/browser-llvm/wasm-ld.mjs`
+- `toolchain/workspace/out/browser-toolchain/clang.wasm`
+- `toolchain/workspace/out/browser-toolchain/clang.mjs`
+- `toolchain/workspace/out/browser-toolchain/wasm-ld.wasm`
+- `toolchain/workspace/out/browser-toolchain/wasm-ld.mjs`
 
 **Key script:** `toolchain/scripts/build-browser-llvm.sh`
 
@@ -103,7 +103,7 @@ Each milestone has a clear goal, concrete deliverables, and a definition of done
 
 ```bash
 # Load the browser WASM and call clang --version equivalent
-node -e "const m = require('./out/browser-llvm/clang.mjs'); m.callMain(['--version'])"
+node -e "const m = require('./out/browser-toolchain/clang.mjs'); m.callMain(['--version'])"
 ```
 
 **Definition of done:** `clang.wasm` loads in a browser worker and reports its version without crashing.

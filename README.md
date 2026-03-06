@@ -12,19 +12,18 @@ The toolchain is distributed as a **versioned package via GitHub Releases** and 
 
 ### For IDE consumers
 
-Download the latest release from GitHub Releases and point your loader at it:
+Download the latest release from GitHub Releases and load it via the loader API:
 
 ```ts
-import { Toolchain } from '@cpp-wasm-toolchain/loader'
+import { loadManifest, resolveToolchain, prepareExecution } from '@cpp-wasm-toolchain/loader'
 
-const toolchain = new Toolchain('https://cdn.example.com/cpp-wasm-toolchain/0.1.0')
+const BASE = 'https://cdn.example.com/cpp-wasm-toolchain/0.1.0'
+const manifest  = await loadManifest(`${BASE}/manifest.json`)
+const toolchain = resolveToolchain(`${BASE}/manifest.json`, manifest)
+const execution = prepareExecution(toolchain)
 
-const result = await toolchain.compile({
-    source: '#include <iostream>\nint main() { std::cout << "Hello!" << std::endl; }',
-    filename: 'main.cpp',
-    stdout: (s) => console.log(s),
-    stderr: (s) => console.error(s),
-})
+// execution.compilerWasmUrl, execution.linkerWasmUrl, execution.runtimeModuleUrl
+// are now resolved and ready for use in a Web Worker.
 ```
 
 ### For toolchain developers
@@ -40,7 +39,7 @@ const result = await toolchain.compile({
 ./toolchain/scripts/build-sysroot.sh
 ./toolchain/scripts/build-host-llvm.sh
 
-source emsdk/emsdk_env.sh   # required before browser LLVM build
+source toolchain/workspace/src/emsdk/emsdk_env.sh   # required before browser LLVM build
 ./toolchain/scripts/build-browser-llvm.sh
 
 # 4. Validate and package
@@ -146,8 +145,11 @@ A minimal demo is available on GitHub Pages. It allows writing C/C++ code, compi
 | Document | Description |
 |---|---|
 | [docs/architecture.md](docs/architecture.md) | System architecture, pipelines, security model |
-| [docs/roadmap.md](docs/roadmap.md) | Milestones and definitions of done |
 | [docs/build.md](docs/build.md) | macOS/Linux setup, build steps, troubleshooting |
+| [docs/release.md](docs/release.md) | Version bump, tagging, and release verification |
+| [docs/contributing.md](docs/contributing.md) | Commit convention, branch strategy, PR requirements |
+| [docs/repository-rules.md](docs/repository-rules.md) | Engineering rules for contributors |
+| [docs/roadmap.md](docs/roadmap.md) | Milestones and definitions of done |
 
 ---
 
