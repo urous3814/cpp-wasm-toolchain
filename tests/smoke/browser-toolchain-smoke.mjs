@@ -76,12 +76,48 @@ function validateSysroot() {
 function validateExamples() {
   console.log('[smoke] checking examples');
   let passed = true;
-  for (const name of ['hello.c', 'hello.cpp', 'vector_sort.cpp']) {
+  const required = [
+    'hello.c',
+    'hello.cpp',
+    'vector_sort.cpp',
+    'string_map.cpp',
+    'compile_error.cpp',
+  ];
+  for (const name of required) {
     const result = loadExample(name);
     if (result.ok) {
       console.log(`  [ok] ${name} (${result.size} bytes)`);
     } else {
       console.error(`  [fail] ${name}: ${result.reason}`);
+      passed = false;
+    }
+  }
+  return passed;
+}
+
+function validatePackageDir() {
+  // Read version from versions.env if available
+  let version = process.env.TOOLCHAIN_VERSION;
+  if (!version) {
+    const envPath = resolve(REPO_ROOT, 'toolchain/config/versions.env');
+    if (existsSync(envPath)) {
+      const match = readFileSync(envPath, 'utf8').match(/^TOOLCHAIN_VERSION=(.+)$/m);
+      if (match) version = match[1].trim();
+    }
+  }
+  if (!version) return true; // cannot check without version
+
+  const pkgDir = resolve(REPO_ROOT, `dist/cpp-wasm-toolchain/${version}`);
+  if (!existsSync(pkgDir)) return true; // package not assembled yet, skip
+
+  console.log(`[smoke] checking packaged directory (v${version})`);
+  let passed = true;
+  for (const rel of ['manifest.json', 'checksums.txt', 'compiler/clang.wasm', 'linker/wasm-ld.wasm', 'runtime/wasi-shim.js']) {
+    const result = checkFile(resolve(pkgDir, rel));
+    if (result.ok) {
+      console.log(`  [ok] ${rel} (${result.size} bytes)`);
+    } else {
+      console.error(`  [fail] ${rel}: ${result.reason}`);
       passed = false;
     }
   }
@@ -101,6 +137,7 @@ const results = [
   validateCompilerArtifacts(),
   validateSysroot(),
   validateExamples(),
+  validatePackageDir(),
 ];
 
 if (results.every(Boolean)) {
