@@ -7,3 +7,4 @@ toolchain/workspace/src/
 *.log
 .env.local
 emsdk/
+.omc/
