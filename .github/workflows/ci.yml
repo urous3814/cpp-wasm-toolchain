@@ -1,25 +1,111 @@
 name: CI
 
 on:
-  pull_request:
   push:
-    branches: [develop]
+    branches:
+      - main
+      - develop
+  pull_request:
+
+defaults:
+  run:
+    shell: bash
 
 jobs:
-  test:
+  ci:
+    name: Validate and smoke test
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Install deps
-        run: sudo apt-get install -y cmake ninja-build nodejs
+      # ── Node + pnpm ──────────────────────────────────────────────────────────
 
-      - name: Validate script syntax
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
+          run_install: false
+
+      - name: Get pnpm store path
+        id: pnpm-cache
+        run: echo "dir=$(pnpm store path)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-cache.outputs.dir }}
+          key: pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            pnpm-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # ── Repository structure validation ──────────────────────────────────────
+
+      - name: Validate required scripts exist
+        run: |
+          required_scripts=(
+            toolchain/scripts/bootstrap-macos.sh
+            toolchain/scripts/fetch-sources.sh
+            toolchain/scripts/build-sysroot.sh
+            toolchain/scripts/build-host-llvm.sh
+            toolchain/scripts/build-browser-llvm.sh
+            toolchain/scripts/validate-sysroot.sh
+            toolchain/scripts/validate-browser-toolchain.sh
+            toolchain/scripts/smoke-test.sh
+            toolchain/scripts/package-toolchain.sh
+            toolchain/scripts/verify-package.sh
+          )
+          missing=0
+          for f in "${required_scripts[@]}"; do
+            if [ -f "$f" ]; then
+              echo "  [ok] $f"
+            else
+              echo "  [missing] $f" >&2
+              missing=1
+            fi
+          done
+          [ "$missing" -eq 0 ]
+
+      - name: Validate bash script syntax
         run: |
           for f in toolchain/scripts/*.sh; do
-            bash -n "$f" && echo "OK $f"
+            bash -n "$f" && echo "  [ok] $f"
           done
 
-      - name: Smoke test
-        run: ./toolchain/scripts/smoke-test.sh
+      - name: Check scripts are executable
+        run: |
+          not_exec=0
+          for f in toolchain/scripts/*.sh; do
+            if [ ! -x "$f" ]; then
+              echo "  [not executable] $f — fixing" >&2
+              chmod +x "$f"
+            else
+              echo "  [ok] $f"
+            fi
+          done
+
+      - name: Validate required examples exist
+        run: |
+          for f in examples/hello.c examples/hello.cpp examples/vector_sort.cpp \
+                   examples/string_map.cpp examples/compile_error.cpp; do
+            [ -s "$f" ] && echo "  [ok] $f" || { echo "  [missing] $f" >&2; exit 1; }
+          done
+
+      # ── TypeScript type check ─────────────────────────────────────────────────
+
+      - name: Type check
+        run: pnpm typecheck
+
+      # ── Node smoke harnesses ─────────────────────────────────────────────────
+
+      - name: Smoke — runtime-smoke.mjs
+        run: node tests/smoke/runtime-smoke.mjs
