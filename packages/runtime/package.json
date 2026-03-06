@@ -1,0 +1,8 @@
+{
+  "name": "@cpp-wasm-toolchain/runtime",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/wasi-shim.ts",
+  "types": "src/wasi-shim.ts"
+}
