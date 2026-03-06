@@ -74,10 +74,11 @@ jobs:
 
       - name: Activate emsdk
         run: |
+          source toolchain/config/versions.env
           EMSDK_DIR="toolchain/workspace/src/emsdk"
           cd "$EMSDK_DIR"
-          ./emsdk install latest
-          ./emsdk activate latest
+          ./emsdk install "$EMSDK_VERSION"
+          ./emsdk activate "$EMSDK_VERSION"
           # Persist env for subsequent steps
           source ./emsdk_env.sh
           echo "PATH=$PATH" >> "$GITHUB_ENV"
