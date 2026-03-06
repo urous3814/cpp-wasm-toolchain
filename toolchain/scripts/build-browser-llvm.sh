@@ -49,7 +49,8 @@ emcmake cmake -G Ninja \
     -DLLVM_INCLUDE_BENCHMARKS=OFF \
     -DCMAKE_BUILD_TYPE=MinSizeRel \
     -DLLVM_TABLEGEN="$HOST_LLVM/bin/llvm-tblgen" \
-    -DCLANG_TABLEGEN="$HOST_LLVM/bin/clang-tblgen"
+    -DCLANG_TABLEGEN="$HOST_LLVM/bin/clang-tblgen" \
+    -DCMAKE_EXE_LINKER_FLAGS="-sERROR_ON_UNDEFINED_SYMBOLS=0"
 
 echo "[browser-llvm] building clang wasm"
 ninja -C "$BUILD" -j"${PARALLEL_JOBS:-$(nproc)}" clang
