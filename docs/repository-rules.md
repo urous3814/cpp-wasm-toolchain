@@ -234,6 +234,78 @@ type(scope): description
 
 ---
 
+## Branch and Merge Principles
+
+| Branch | Purpose | Protection |
+|--------|---------|------------|
+| `main` | Release-grade only — tagged releases, no direct work | Protected; CI-only writes |
+| `develop` | Integration — all feature and fix branches merge here | Protected; PR required |
+| `feature/*` | New functionality — short-lived, branch from `develop` | None |
+| `fix/*` | Bug fixes — short-lived, branch from `develop` | None |
+| `release/*` | Release hardening only — version bump, changelog, final smoke | None |
+
+**Rules:**
+
+- Always branch from `develop`. Never branch from `main`.
+- Direct pushes to `main` and `develop` are not part of the intended workflow. Use pull requests.
+- Pull requests are the default and expected path to merge changes into protected branches.
+- `release/*` branches exist solely for release preparation (version bump in `versions.env`,
+  changelog, final smoke run). No feature work belongs there.
+- Delete merged branches from both local and remote after the PR lands.
+- Update `docs/branches.md` when creating or closing a branch.
+
+---
+
+## Required Validation Before Merge
+
+All of the following must pass before a PR can be merged to `develop`:
+
+**Repository structure**
+- [ ] `bash -n toolchain/scripts/*.sh` — all shell scripts are syntactically valid
+- [ ] `toolchain/config/versions.env` sources cleanly with no undefined variables
+
+**TypeScript**
+- [ ] `pnpm typecheck` exits 0 — no type errors in `packages/`
+
+**Smoke tests**
+- [ ] `node tests/smoke/runtime-smoke.mjs` passes all cases
+- [ ] `tests/smoke/hello.c` compiles and prints expected output
+- [ ] `tests/smoke/hello.cpp` compiles and prints expected output
+- [ ] `tests/smoke/compile_error.cpp` produces non-empty compiler error (does not crash)
+
+**Package verification (release-facing branches only)**
+- [ ] `./toolchain/scripts/validate-sysroot.sh` exits 0
+- [ ] `./toolchain/scripts/package-toolchain.sh` produces a valid `.tar.gz`
+- [ ] `checksums.txt` matches all files in the archive
+
+**Documentation**
+- [ ] If a public script interface, build contract, or package API changed — the relevant
+  doc in `docs/` is updated to match
+- [ ] `docs/branches.md` reflects the current branch state
+
+**CI**
+- [ ] `ci.yml` workflow is green on the branch before merge
+
+---
+
+## Release Safety
+
+- **Artifacts are immutable.** Once a version is published to GitHub Releases, its `.tar.gz`,
+  `manifest.json`, and `checksums.txt` must not be modified. If a fix is needed, create a new
+  version.
+- **Never re-upload to an existing tag.** Overwriting a release artifact breaks checksum
+  verification for anyone who has already downloaded it.
+- **Version bumps must be intentional.** Increment `TOOLCHAIN_VERSION` in `versions.env` only
+  as a deliberate decision, not as a side effect of unrelated work.
+- **Verify before publishing.** `validate-sysroot.sh` and `package-toolchain.sh` must both exit
+  cleanly, and smoke tests must pass, before tagging a release.
+- **Tagging triggers the release pipeline.** Pushing a `v*` tag to `main` triggers `release.yml`.
+  Do not push version tags to test — use a staging branch or dry-run flag instead.
+- **`main` receives only release-verified commits.** Merge `develop` → `main` only after the
+  release branch has been smoke-tested and reviewed.
+
+---
+
 ## Pull Request Requirements
 
 Before a PR can be merged to `develop`:
