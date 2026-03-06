@@ -1,51 +1,82 @@
+/**
+ * worker.ts
+ *
+ * Toolchain Web Worker entry point.
+ * Handles the message protocol defined in messages.ts.
+ */
+
 import { loadManifest, resolveToolchain, LoadedToolchain } from '@cpp-wasm-toolchain/loader'
-import { runWasiProgram } from '@cpp-wasm-toolchain/runtime'
+import type {
+  WorkerRequest,
+  WorkerResponse,
+  InitRequest,
+  CompileRequest,
+  RunRequest,
+} from './messages'
 
-export type WorkerRequest =
-    | { type: 'compile'; source: string; filename: string; flags?: string[]; baseUrl?: string }
-    | { type: 'run'; wasmBytes: ArrayBuffer; stdin?: string; baseUrl?: string }
-
-export type WorkerResponse =
-    | { type: 'ready' }
-    | { type: 'compile:ok'; diagnostics: string }
-    | { type: 'compile:error'; diagnostics: string }
-    | { type: 'run:stdout'; text: string }
-    | { type: 'run:stderr'; text: string }
-    | { type: 'run:done'; exitCode: number; timedOut: boolean }
-    | { type: 'error'; message: string }
+export type { WorkerRequest, WorkerResponse } from './messages'
 
 declare const self: Worker
 
+// Worker-side state
 let toolchain: LoadedToolchain | null = null
 
+function send(msg: WorkerResponse): void {
+  self.postMessage(msg)
+}
+
+// ── Request handlers ──────────────────────────────────────────────────────────
+
+async function handleInit(req: InitRequest): Promise<void> {
+  const manifestUrl = req.baseUrl.replace(/\/$/, '') + '/manifest.json'
+  const manifest = await loadManifest(manifestUrl)
+  toolchain = resolveToolchain(manifestUrl, manifest)
+  send({ type: 'init:ok', version: toolchain.manifest.version })
+}
+
+// TODO(compile): instantiate clang.wasm, pipe source through compiler,
+//               run wasm-ld, return linked binary.
+async function handleCompile(_req: CompileRequest): Promise<void> {
+  send({ type: 'compile:error', diagnostics: '[worker] compile not yet implemented' })
+}
+
+// TODO(run): instantiate the provided wasm binary via runWasiProgram,
+//            stream stdout/stderr, return run:done.
+async function handleRun(_req: RunRequest): Promise<void> {
+  send({ type: 'run:done', exitCode: 1, timedOut: false, durationMs: 0 })
+  send({ type: 'error', message: '[worker] run not yet implemented' })
+}
+
+// ── Message dispatcher ────────────────────────────────────────────────────────
+
 self.addEventListener('message', async (event: MessageEvent<WorkerRequest>) => {
-    const req = event.data
+  const req = event.data
+  try {
+    switch (req.type) {
+      case 'ping':
+        send({ type: 'pong' })
+        break
 
-    try {
-        // Lazily load the toolchain manifest on first message that provides baseUrl.
-        if (!toolchain && req.baseUrl) {
-            const manifestUrl = req.baseUrl.replace(/\/$/, '') + '/manifest.json'
-            const manifest = await loadManifest(manifestUrl)
-            toolchain = resolveToolchain(manifestUrl, manifest)
-        }
+      case 'init':
+        await handleInit(req)
+        break
 
-        if (req.type === 'compile') {
-            // Full compilation is not yet implemented; placeholder response.
-            self.postMessage({ type: 'compile:error', diagnostics: '[worker] compile not yet implemented' } satisfies WorkerResponse)
+      case 'compile':
+        if (!toolchain) throw new Error('Worker not initialized. Send init first.')
+        await handleCompile(req)
+        break
 
-        } else if (req.type === 'run') {
-            const mod = await WebAssembly.compile(req.wasmBytes)
-            const result = await runWasiProgram({
-                wasmModule: mod,
-                stdin: req.stdin,
-                onStdout: (text: string) => self.postMessage({ type: 'run:stdout', text } satisfies WorkerResponse),
-                onStderr: (text: string) => self.postMessage({ type: 'run:stderr', text } satisfies WorkerResponse),
-            })
-            self.postMessage({ type: 'run:done', exitCode: result.exitCode, timedOut: result.timedOut } satisfies WorkerResponse)
-        }
-    } catch (e) {
-        self.postMessage({ type: 'error', message: String(e) } satisfies WorkerResponse)
+      case 'run':
+        if (!toolchain) throw new Error('Worker not initialized. Send init first.')
+        await handleRun(req)
+        break
+
+      default: {
+        const exhaustive: never = req
+        send({ type: 'error', message: `Unknown request type: ${(exhaustive as WorkerRequest).type}` })
+      }
     }
+  } catch (e) {
+    send({ type: 'error', message: String(e) })
+  }
 })
-
-self.postMessage({ type: 'ready' } satisfies WorkerResponse)
