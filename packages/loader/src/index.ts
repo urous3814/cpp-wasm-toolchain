@@ -142,3 +142,26 @@ export function resolveToolchain(
     runtimeEntryUrl:   r(manifest.runtime.entry),
   };
 }
+
+// ── Execution preparation ─────────────────────────────────────────────────────
+
+export type PreparedExecution = {
+  toolchain: LoadedToolchain;
+  /** Fully resolved URL of the WASI runtime module entry point. */
+  runtimeModuleUrl: string;
+};
+
+/**
+ * Validate that the toolchain has a resolvable runtime entry and return a
+ * normalized PreparedExecution object ready for future compile/run stages.
+ */
+export function prepareExecution(toolchain: LoadedToolchain): PreparedExecution {
+  const { runtimeEntryUrl } = toolchain;
+  if (!runtimeEntryUrl || runtimeEntryUrl.trim() === '') {
+    throw new Error('[loader] toolchain is missing a runtime entry URL');
+  }
+  return {
+    toolchain,
+    runtimeModuleUrl: runtimeEntryUrl,
+  };
+}
