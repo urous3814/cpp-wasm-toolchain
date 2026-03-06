@@ -39,7 +39,7 @@ require_file "$RUNTIME_DIST/wasi-shim.js"
 
 echo "[package] assembling $PKG_NAME@$VERSION"
 rm -rf "$PKG_DIR"
-mkdir -p "$PKG_DIR/compiler" "$PKG_DIR/linker" "$PKG_DIR/sysroot" "$PKG_DIR/runtime" "$PKG_DIR/examples"
+mkdir -p "$PKG_DIR/compiler" "$PKG_DIR/linker" "$PKG_DIR/sysroot/lib" "$PKG_DIR/runtime" "$PKG_DIR/examples"
 
 # Required WASM artifacts
 cp "$BROWSER_OUT/clang.wasm"   "$PKG_DIR/compiler/"
