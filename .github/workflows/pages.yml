@@ -16,8 +16,13 @@ defaults:
     shell: bash
 
 jobs:
-  build:
-    name: Build demo site
+
+  # ── Job 1: demo-build ───────────────────────────────────────────────────────
+  # Compiles the demo TypeScript entry point, copies static assets, and
+  # uploads the result as a GitHub Pages artifact.
+
+  demo-build:
+    name: demo-build
     runs-on: ubuntu-latest
 
     steps:
@@ -50,27 +55,10 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Type check
-        run: pnpm typecheck
-
-      - name: Build demo
+      - name: Build demo site
         env:
           VITE_TOOLCHAIN_BASE_URL: ${{ vars.TOOLCHAIN_BASE_URL }}
-        run: |
-          mkdir -p demo/dist
-          # Compile TypeScript entry point
-          pnpm exec tsc demo/main.ts \
-            --outDir demo/dist \
-            --target ES2020 \
-            --module ES2020 \
-            --moduleResolution bundler \
-            --strict \
-            --skipLibCheck || true
-          # Copy static assets
-          cp demo/index.html demo/dist/
-          cp demo/style.css  demo/dist/
-          echo "[pages] demo build complete"
-          ls -lh demo/dist/
+        run: pnpm demo:build
 
       - name: Configure Pages
         uses: actions/configure-pages@v4
@@ -80,10 +68,12 @@ jobs:
         with:
           path: demo/dist
 
+  # ── Job 2: deploy ───────────────────────────────────────────────────────────
+
   deploy:
     name: Deploy to GitHub Pages
     runs-on: ubuntu-latest
-    needs: build
+    needs: demo-build
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

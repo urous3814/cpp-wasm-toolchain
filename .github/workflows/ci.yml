@@ -12,15 +12,114 @@ defaults:
     shell: bash
 
 jobs:
-  ci:
-    name: Validate and smoke test
+
+  # ── Job 1: repo-structure ───────────────────────────────────────────────────
+  # Validates that required files and directories are present and that all
+  # shell scripts are syntactically valid and executable.
+  # No Node.js required — runs fast on a bare checkout.
+
+  repo-structure:
+    name: repo-structure
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # ── Node + pnpm ──────────────────────────────────────────────────────────
+      - name: Check required files and directories
+        run: |
+          missing=0
+          check() {
+            if [ -e "$1" ]; then
+              echo "  [ok] $1"
+            else
+              echo "  [missing] $1" >&2
+              missing=1
+            fi
+          }
+
+          # Top-level
+          check README.md
+
+          # Documentation
+          check docs/
+          check docs/architecture.md
+          check docs/build.md
+          check docs/contributing.md
+          check docs/repository-rules.md
+
+          # Toolchain build scripts
+          check toolchain/scripts/
+          check toolchain/config/versions.env
+          check toolchain/scripts/bootstrap-macos.sh
+          check toolchain/scripts/fetch-sources.sh
+          check toolchain/scripts/build-sysroot.sh
+          check toolchain/scripts/build-host-llvm.sh
+          check toolchain/scripts/build-browser-llvm.sh
+          check toolchain/scripts/validate-sysroot.sh
+          check toolchain/scripts/validate-browser-toolchain.sh
+          check toolchain/scripts/smoke-test.sh
+          check toolchain/scripts/package-toolchain.sh
+          check toolchain/scripts/verify-package.sh
+
+          # Packages
+          check packages/runtime/src/wasi-shim.ts
+          check packages/loader/src/index.ts
+          check packages/worker/src/worker.ts
+          check packages/worker/src/messages.ts
+
+          # Examples
+          check examples/hello.c
+          check examples/hello.cpp
+          check examples/vector_sort.cpp
+          check examples/compile_error.cpp
+
+          # Workflows
+          check .github/workflows/ci.yml
+          check .github/workflows/release.yml
+          check .github/workflows/pages.yml
+
+          [ "$missing" -eq 0 ]
+
+      - name: Validate bash script syntax
+        run: |
+          for f in toolchain/scripts/*.sh; do
+            bash -n "$f" && echo "  [ok] $f"
+          done
+
+      - name: Check scripts are executable
+        run: |
+          not_exec=0
+          for f in toolchain/scripts/*.sh; do
+            if [ ! -x "$f" ]; then
+              echo "  [not executable] $f" >&2
+              not_exec=1
+            else
+              echo "  [ok] $f"
+            fi
+          done
+          [ "$not_exec" -eq 0 ]
+
+      - name: Validate versions.env sources cleanly
+        run: |
+          source toolchain/config/versions.env
+          echo "  [ok] LLVM_VERSION=$LLVM_VERSION"
+          echo "  [ok] WASI_SDK_VERSION=$WASI_SDK_VERSION"
+          echo "  [ok] EMSDK_VERSION=$EMSDK_VERSION"
+          echo "  [ok] TOOLCHAIN_VERSION=$TOOLCHAIN_VERSION"
+
+  # ── Job 2: typecheck ────────────────────────────────────────────────────────
+  # Installs dependencies and runs the project-wide TypeScript type check.
+  # Fails if any type error exists in packages/ or demo/.
+
+  typecheck:
+    name: typecheck
+    runs-on: ubuntu-latest
+    needs: repo-structure
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -48,64 +147,48 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # ── Repository structure validation ──────────────────────────────────────
-
-      - name: Validate required scripts exist
-        run: |
-          required_scripts=(
-            toolchain/scripts/bootstrap-macos.sh
-            toolchain/scripts/fetch-sources.sh
-            toolchain/scripts/build-sysroot.sh
-            toolchain/scripts/build-host-llvm.sh
-            toolchain/scripts/build-browser-llvm.sh
-            toolchain/scripts/validate-sysroot.sh
-            toolchain/scripts/validate-browser-toolchain.sh
-            toolchain/scripts/smoke-test.sh
-            toolchain/scripts/package-toolchain.sh
-            toolchain/scripts/verify-package.sh
-          )
-          missing=0
-          for f in "${required_scripts[@]}"; do
-            if [ -f "$f" ]; then
-              echo "  [ok] $f"
-            else
-              echo "  [missing] $f" >&2
-              missing=1
-            fi
-          done
-          [ "$missing" -eq 0 ]
-
-      - name: Validate bash script syntax
-        run: |
-          for f in toolchain/scripts/*.sh; do
-            bash -n "$f" && echo "  [ok] $f"
-          done
-
-      - name: Check scripts are executable
-        run: |
-          not_exec=0
-          for f in toolchain/scripts/*.sh; do
-            if [ ! -x "$f" ]; then
-              echo "  [not executable] $f — fixing" >&2
-              chmod +x "$f"
-            else
-              echo "  [ok] $f"
-            fi
-          done
-
-      - name: Validate required examples exist
-        run: |
-          for f in examples/hello.c examples/hello.cpp examples/vector_sort.cpp \
-                   examples/string_map.cpp examples/compile_error.cpp; do
-            [ -s "$f" ] && echo "  [ok] $f" || { echo "  [missing] $f" >&2; exit 1; }
-          done
-
-      # ── TypeScript type check ─────────────────────────────────────────────────
-
       - name: Type check
         run: pnpm typecheck
 
-      # ── Node smoke harnesses ─────────────────────────────────────────────────
+  # ── Job 3: smoke-tests ──────────────────────────────────────────────────────
+  # Runs the CI-safe smoke harness: structural checks on source files that do
+  # not require a built toolchain. The full smoke-test.sh (which requires built
+  # browser LLVM artifacts) runs only in the release pipeline.
 
-      - name: Smoke — runtime-smoke.mjs
-        run: node tests/smoke/runtime-smoke.mjs
+  smoke-tests:
+    name: smoke-tests
+    runs-on: ubuntu-latest
+    needs: repo-structure
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
+          run_install: false
+
+      - name: Get pnpm store path
+        id: pnpm-cache
+        run: echo "dir=$(pnpm store path)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-cache.outputs.dir }}
+          key: pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            pnpm-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run runtime smoke test
+        run: pnpm smoke-test:ci

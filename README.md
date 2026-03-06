@@ -147,6 +147,7 @@ A minimal demo is available on GitHub Pages. It allows writing C/C++ code, compi
 | [docs/architecture.md](docs/architecture.md) | System architecture, pipelines, security model |
 | [docs/build.md](docs/build.md) | macOS/Linux setup, build steps, troubleshooting |
 | [docs/release.md](docs/release.md) | Version bump, tagging, and release verification |
+| [docs/release-policy.md](docs/release-policy.md) | Release rules: versioning, immutability, rollback strategy |
 | [docs/contributing.md](docs/contributing.md) | Commit convention, branch strategy, PR requirements |
 | [docs/repository-rules.md](docs/repository-rules.md) | Engineering rules for contributors |
 | [docs/roadmap.md](docs/roadmap.md) | Milestones and definitions of done |
