@@ -1,11 +1,11 @@
 name: Bug Report
-description: Report a bug in the toolchain
+description: Report a bug in the toolchain build, packaging, or runtime
 labels: [bug]
 body:
   - type: markdown
     attributes:
       value: |
-        Thanks for reporting a bug. Please fill out the sections below.
+        Please fill out all required sections to help us reproduce and fix the issue.
 
   - type: input
     id: version
@@ -16,20 +16,26 @@ body:
       required: true
 
   - type: textarea
-    id: description
+    id: environment
     attributes:
-      label: Description
-      description: What went wrong?
+      label: Environment
+      description: OS, browser (if applicable), Node.js version, relevant tool versions
+      placeholder: |
+        OS: macOS 14 / Ubuntu 22.04
+        Node: 20.x
+        Browser: Chrome 125 (if runtime issue)
+        emcc: 3.1.64 (if build issue)
     validations:
       required: true
 
   - type: textarea
-    id: reproduction
+    id: steps
     attributes:
       label: Steps to reproduce
       placeholder: |
-        1. Run ./toolchain/scripts/...
-        2. ...
+        1. Run ./toolchain/scripts/build-sysroot.sh
+        2. Run ./toolchain/scripts/smoke-test.sh
+        3. Observe error
     validations:
       required: true
 
@@ -37,9 +43,21 @@ body:
     id: expected
     attributes:
       label: Expected behavior
+      description: What should have happened?
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: What actually happened?
+    validations:
+      required: true
 
   - type: textarea
     id: logs
     attributes:
-      label: Relevant logs or error output
+      label: Logs or error output
+      description: Paste relevant terminal output or browser console errors.
       render: shell

@@ -65,7 +65,7 @@ This will:
 After bootstrap, activate the emscripten environment in your shell. You must do this in every new terminal session before running browser LLVM builds:
 
 ```bash
-source emsdk/emsdk_env.sh
+source toolchain/workspace/src/emsdk/emsdk_env.sh
 ```
 
 Verify:
@@ -128,23 +128,23 @@ Verify:
 Compiles Clang and LLD to WebAssembly using emscripten. This is the longest step.
 
 ```bash
-source emsdk/emsdk_env.sh   # required before this step
+source toolchain/workspace/src/emsdk/emsdk_env.sh   # required before this step
 ./toolchain/scripts/build-browser-llvm.sh
 ```
 
 Output:
-- `toolchain/workspace/out/browser-llvm/clang.wasm`
-- `toolchain/workspace/out/browser-llvm/clang.mjs`
-- `toolchain/workspace/out/browser-llvm/wasm-ld.wasm`
-- `toolchain/workspace/out/browser-llvm/wasm-ld.mjs`
+- `toolchain/workspace/out/browser-toolchain/clang.wasm`
+- `toolchain/workspace/out/browser-toolchain/wasm-ld.wasm`
 
 Takes **60–120 minutes**. Watch for OOM errors if RAM < 16 GB.
 
 Verify:
 
 ```bash
-ls -lh toolchain/workspace/out/browser-llvm/clang.wasm
-# Should be 20–40 MB
+./toolchain/scripts/validate-browser-toolchain.sh
+# [browser-toolchain] found clang.wasm (... bytes)
+# [browser-toolchain] found wasm-ld.wasm (... bytes)
+# [browser-toolchain] validation passed
 ```
 
 ### Step 5 — Validate sysroot
@@ -192,16 +192,17 @@ All 5 must pass before packaging is considered complete.
 
 ---
 
-## npm Script Aliases
+## pnpm Script Aliases
 
-The above steps can also be run via npm:
+The above steps can also be run via pnpm:
 
 ```bash
-npm run build:sysroot       # Step 2
-npm run build:llvm-host     # Step 3
-npm run build:llvm-browser  # Step 4
-npm run package             # Steps 5+6
-npm run test                # Step 7
+pnpm build:sysroot       # Step 2
+pnpm build:llvm-host     # Step 3
+pnpm build:llvm-browser  # Step 4
+pnpm package             # Steps 5+6
+pnpm test                # Step 7
+pnpm typecheck           # TypeScript type check
 ```
 
 ---
