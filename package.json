@@ -1,0 +1,14 @@
+{
+  "name": "cpp-wasm-toolchain",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": ["packages/*"],
+  "scripts": {
+    "bootstrap": "./toolchain/scripts/bootstrap-macos.sh",
+    "build:sysroot": "./toolchain/scripts/build-sysroot.sh",
+    "build:llvm-host": "./toolchain/scripts/build-host-llvm.sh",
+    "build:llvm-browser": "./toolchain/scripts/build-browser-llvm.sh",
+    "package": "./toolchain/scripts/package-toolchain.sh",
+    "test": "./toolchain/scripts/smoke-test.sh"
+  }
+}

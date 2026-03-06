@@ -1,0 +1,9 @@
+node_modules/
+dist/
+toolchain/workspace/build/
+toolchain/workspace/out/
+toolchain/workspace/src/
+*.tar.gz
+*.log
+.env.local
+emsdk/
