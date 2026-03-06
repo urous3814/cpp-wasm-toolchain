@@ -1,0 +1,11 @@
+{
+  "name": "@cpp-wasm-toolchain/worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/worker.ts",
+  "types": "src/worker.ts",
+  "dependencies": {
+    "@cpp-wasm-toolchain/loader": "workspace:*"
+  }
+}
