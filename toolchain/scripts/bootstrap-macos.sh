@@ -1,19 +1,30 @@
 #!/usr/bin/env bash
-set -e
+set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/../config/versions.env"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+EMSDK_DIR="$REPO_ROOT/toolchain/workspace/src/emsdk"
 
-echo "==> Installing system dependencies"
-brew install cmake ninja git node python rust
+echo "[bootstrap] Installing dependencies"
+brew install cmake ninja git node python rust ccache
 
-echo "==> Installing emsdk ${EMSDK_VERSION}"
-if [ ! -d "emsdk" ]; then
-    git clone https://github.com/emscripten-core/emsdk.git
+echo "[bootstrap] Installing emsdk"
+if [ ! -d "$EMSDK_DIR" ]; then
+    git clone https://github.com/emscripten-core/emsdk.git "$EMSDK_DIR"
 fi
 
-cd emsdk
-./emsdk install "${EMSDK_VERSION}"
-./emsdk activate "${EMSDK_VERSION}"
+echo "[bootstrap] Activating emsdk"
+cd "$EMSDK_DIR"
+./emsdk install latest
+./emsdk activate latest
+# shellcheck source=/dev/null
+source ./emsdk_env.sh
 
-echo "==> Bootstrap complete"
+if ! command -v emcc &>/dev/null; then
+    echo "[bootstrap] ERROR: emcc not found after emsdk activation" >&2
+    exit 1
+fi
+
+emcc --version
+
+echo "[bootstrap] Environment ready"
