@@ -1,43 +1,43 @@
 #!/usr/bin/env bash
-set -e
+set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/../config/versions.env"
 source "$SCRIPT_DIR/../config/build.env"
 
 WORKSPACE="$SCRIPT_DIR/../workspace"
-SRC_DIR="$WORKSPACE/src/llvm-project"
-BUILD_DIR="$WORKSPACE/build/host-llvm"
-OUT_DIR="$WORKSPACE/out/host-llvm"
+SRC="$WORKSPACE/src/llvm-project"
+BUILD="$WORKSPACE/build/host-llvm"
+OUT="$WORKSPACE/out/host-llvm"
 
-echo "==> Building host LLVM ${LLVM_VERSION} (tablegen tools only)"
-
-if [ ! -d "$SRC_DIR" ]; then
-    echo "ERROR: llvm-project source not found at $SRC_DIR"
-    echo "Run fetch-sources.sh first"
+if [ ! -d "$SRC" ]; then
+    echo "[host-llvm] ERROR: llvm-project source not found at $SRC" >&2
+    echo "[host-llvm] Run fetch-sources.sh first" >&2
     exit 1
 fi
 
-mkdir -p "$BUILD_DIR"
+mkdir -p "$BUILD"
 
+echo "[host-llvm] configuring"
 cmake -G Ninja \
-    -S "$SRC_DIR/llvm" \
-    -B "$BUILD_DIR" \
+    -S "$SRC/llvm" \
+    -B "$BUILD" \
     -DCMAKE_BUILD_TYPE=Release \
-    -DLLVM_ENABLE_PROJECTS="clang" \
-    -DLLVM_TARGETS_TO_BUILD="host" \
+    -DLLVM_ENABLE_PROJECTS="clang;lld" \
+    -DLLVM_TARGETS_TO_BUILD="WebAssembly;X86;AArch64" \
     -DLLVM_INCLUDE_TESTS=OFF \
     -DLLVM_INCLUDE_EXAMPLES=OFF \
-    -DLLVM_INCLUDE_BENCHMARKS=OFF \
-    -DCLANG_ENABLE_STATIC_ANALYZER=OFF \
-    -DCLANG_ENABLE_ARCMT=OFF \
-    -DCMAKE_INSTALL_PREFIX="$OUT_DIR"
+    -DLLVM_INCLUDE_BENCHMARKS=OFF
 
-ninja -C "$BUILD_DIR" -j"$PARALLEL_JOBS" llvm-tblgen clang-tblgen
+echo "[host-llvm] building tablegen tools"
+ninja -C "$BUILD" -j"${PARALLEL_JOBS:-$(nproc)}" llvm-tblgen clang-tblgen
 
-mkdir -p "$OUT_DIR/bin"
-cp "$BUILD_DIR/bin/llvm-tblgen" "$OUT_DIR/bin/"
-cp "$BUILD_DIR/bin/clang-tblgen" "$OUT_DIR/bin/"
+if [ ! -f "$BUILD/bin/llvm-tblgen" ] || [ ! -f "$BUILD/bin/clang-tblgen" ]; then
+    echo "[host-llvm] ERROR: tablegen tools not found after build" >&2
+    exit 1
+fi
 
-echo "==> Host LLVM built at $OUT_DIR"
-"$OUT_DIR/bin/llvm-tblgen" --version
+mkdir -p "$OUT/bin"
+cp "$BUILD/bin/llvm-tblgen" "$OUT/bin/"
+cp "$BUILD/bin/clang-tblgen" "$OUT/bin/"
+
+echo "[host-llvm] build complete"
