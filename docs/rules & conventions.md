@@ -94,18 +94,18 @@ cpp-wasm-toolchain/
 
 ```json
 {
-    "name": "cpp-wasm-toolchain",
-    "private": true,
-    "version": "0.1.0",
-    "workspaces": ["packages/*"],
-    "scripts": {
-        "bootstrap": "./toolchain/scripts/bootstrap-macos.sh",
-        "build:sysroot": "./toolchain/scripts/build-sysroot.sh",
-        "build:llvm-host": "./toolchain/scripts/build-host-llvm.sh",
-        "build:llvm-browser": "./toolchain/scripts/build-browser-llvm.sh",
-        "package": "./toolchain/scripts/package-toolchain.sh",
-        "test": "./toolchain/scripts/smoke-test.sh"
-    }
+  "name": "cpp-wasm-toolchain",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": ["packages/*"],
+  "scripts": {
+    "bootstrap": "./toolchain/scripts/bootstrap-macos.sh",
+    "build:sysroot": "./toolchain/scripts/build-sysroot.sh",
+    "build:llvm-host": "./toolchain/scripts/build-host-llvm.sh",
+    "build:llvm-browser": "./toolchain/scripts/build-browser-llvm.sh",
+    "package": "./toolchain/scripts/package-toolchain.sh",
+    "test": "./toolchain/scripts/smoke-test.sh"
+  }
 }
 ```
 
@@ -115,7 +115,7 @@ cpp-wasm-toolchain/
 
 ```bash
 LLVM_VERSION=18.1.0
-WASI_SDK_VERSION=21
+WASI_SDK_VERSION=30
 EMSDK_VERSION=3.1.64
 
 TOOLCHAIN_VERSION=0.1.0
@@ -147,28 +147,28 @@ cd emsdk
 ## generate-manifest.mjs
 
 ```javascript
-import fs from 'fs'
+import fs from "fs";
 
-const version = process.env.TOOLCHAIN_VERSION || '0.1.0'
+const version = process.env.TOOLCHAIN_VERSION || "0.1.0";
 
 const manifest = {
-    name: 'cpp-wasm-toolchain',
-    version,
-    target: 'wasm32-wasi',
-    compiler: {
-        entry: 'compiler/clang.mjs',
-        wasm: 'compiler/clang.wasm',
-    },
-    linker: {
-        entry: 'linker/wasm-ld.mjs',
-        wasm: 'linker/wasm-ld.wasm',
-    },
-    runtime: {
-        entry: 'runtime/wasi-shim.js',
-    },
-}
+  name: "cpp-wasm-toolchain",
+  version,
+  target: "wasm32-wasi",
+  compiler: {
+    entry: "compiler/clang.mjs",
+    wasm: "compiler/clang.wasm",
+  },
+  linker: {
+    entry: "linker/wasm-ld.mjs",
+    wasm: "linker/wasm-ld.wasm",
+  },
+  runtime: {
+    entry: "runtime/wasi-shim.js",
+  },
+};
 
-fs.writeFileSync('dist/manifest.json', JSON.stringify(manifest, null, 2))
+fs.writeFileSync("dist/manifest.json", JSON.stringify(manifest, null, 2));
 ```
 
 ---
@@ -177,27 +177,27 @@ fs.writeFileSync('dist/manifest.json', JSON.stringify(manifest, null, 2))
 
 ```ts
 export async function runWasi(
-    wasm: WebAssembly.Module,
-    opts: {
-        stdin?: string
-        stdout?: (s: string) => void
-        stderr?: (s: string) => void
-        timeoutMs?: number
-    }
+  wasm: WebAssembly.Module,
+  opts: {
+    stdin?: string;
+    stdout?: (s: string) => void;
+    stderr?: (s: string) => void;
+    timeoutMs?: number;
+  },
 ) {
-    const wasi = new (globalThis as any).WASI({
-        args: [],
-        env: {},
-        bindings: {
-            ...(globalThis as any).WASI.defaultBindings,
-        },
-    })
+  const wasi = new (globalThis as any).WASI({
+    args: [],
+    env: {},
+    bindings: {
+      ...(globalThis as any).WASI.defaultBindings,
+    },
+  });
 
-    const instance = await WebAssembly.instantiate(wasm, {
-        wasi_snapshot_preview1: wasi.wasiImport,
-    })
+  const instance = await WebAssembly.instantiate(wasm, {
+    wasi_snapshot_preview1: wasi.wasiImport,
+  });
 
-    wasi.start(instance)
+  wasi.start(instance);
 }
 ```
 
@@ -206,15 +206,15 @@ export async function runWasi(
 ## demo/main.ts
 
 ```ts
-import { runWasi } from '../packages/runtime/src/wasi-shim'
+import { runWasi } from "../packages/runtime/src/wasi-shim";
 
 async function run() {
-    const source = (document.getElementById('code') as HTMLTextAreaElement).value
+  const source = (document.getElementById("code") as HTMLTextAreaElement).value;
 
-    console.log('compile stub:', source)
+  console.log("compile stub:", source);
 }
 
-document.getElementById('run')?.addEventListener('click', run)
+document.getElementById("run")?.addEventListener("click", run);
 ```
 
 ---
@@ -450,22 +450,22 @@ This repository builds and distributes a browser C/C++ toolchain package.
 name: CI
 
 on:
-    pull_request:
-    push:
-        branches: [develop]
+  pull_request:
+  push:
+    branches: [develop]
 
 jobs:
-    test:
-        runs-on: ubuntu-latest
+  test:
+    runs-on: ubuntu-latest
 
-        steps:
-            - uses: actions/checkout@v4
+    steps:
+      - uses: actions/checkout@v4
 
-            - name: Install deps
-              run: sudo apt-get install cmake ninja-build nodejs
+      - name: Install deps
+        run: sudo apt-get install cmake ninja-build nodejs
 
-            - name: Smoke test
-              run: ./toolchain/scripts/smoke-test.sh
+      - name: Smoke test
+        run: ./toolchain/scripts/smoke-test.sh
 ```
 
 ---
@@ -476,22 +476,22 @@ jobs:
 name: Release
 
 on:
-    push:
-        tags:
-            - 'v*'
+  push:
+    tags:
+      - "v*"
 
 jobs:
-    build:
-        runs-on: ubuntu-latest
+  build:
+    runs-on: ubuntu-latest
 
-        steps:
-            - uses: actions/checkout@v4
+    steps:
+      - uses: actions/checkout@v4
 
-            - name: Build toolchain
-              run: ./toolchain/scripts/package-toolchain.sh
+      - name: Build toolchain
+        run: ./toolchain/scripts/package-toolchain.sh
 
-            - name: Upload artifact
-              uses: softprops/action-gh-release@v1
+      - name: Upload artifact
+        uses: softprops/action-gh-release@v1
 ```
 
 ---
