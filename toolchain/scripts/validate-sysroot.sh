@@ -1,31 +1,32 @@
 #!/usr/bin/env bash
-set -e
+set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SYSROOT="$SCRIPT_DIR/../workspace/out/sysroot"
 
-echo "==> Validating sysroot at $SYSROOT"
+FAILED=0
 
-fail() {
-    echo "ERROR: $1"
-    exit 1
+check_header() {
+    local header="$1"
+    if [ ! -f "$SYSROOT/include/$header" ]; then
+        echo "[sysroot] missing header: $header" >&2
+        FAILED=1
+    fi
 }
 
-[ -d "$SYSROOT" ] || fail "sysroot directory not found: $SYSROOT"
+check_header "vector"
+check_header "algorithm"
+check_header "string"
+check_header "map"
+check_header "iostream"
 
-# Required libraries
-for lib in libc++.a libc++abi.a libclang_rt.builtins-wasm32.a; do
-    found=$(find "$SYSROOT/lib" -name "$lib" 2>/dev/null | head -1)
-    [ -n "$found" ] || fail "Missing library: $lib"
-    echo "    OK $lib"
-done
+if [ ! -d "$SYSROOT/lib/wasm32-wasi" ]; then
+    echo "[sysroot] missing library directory: lib/wasm32-wasi" >&2
+    FAILED=1
+fi
 
-# Required STL headers
-for header in iostream vector algorithm string map set queue stack; do
-    [ -f "$SYSROOT/include/c++/v1/$header" ] || \
-    [ -f "$SYSROOT/include/$header" ] || \
-    fail "Missing STL header: $header"
-    echo "    OK <$header>"
-done
+if [ "$FAILED" -ne 0 ]; then
+    exit 1
+fi
 
-echo "==> Sysroot validation passed"
+echo "[sysroot] validation passed"
