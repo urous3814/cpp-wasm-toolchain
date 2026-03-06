@@ -49,6 +49,9 @@ async function handleRun(_req: RunRequest): Promise<void> {
 
 // ── Message dispatcher ────────────────────────────────────────────────────────
 
+// Notify the main thread that the worker script has loaded.
+send({ type: 'ready' } satisfies WorkerResponse)
+
 self.addEventListener('message', async (event: MessageEvent<WorkerRequest>) => {
   const req = event.data
   try {
