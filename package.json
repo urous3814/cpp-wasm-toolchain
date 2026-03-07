@@ -12,9 +12,10 @@
     "test": "./toolchain/scripts/smoke-test.sh",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "smoke-test:ci": "node tests/smoke/runtime-smoke.mjs",
-    "demo:build": "mkdir -p demo/dist && tsc demo/main.ts --outDir demo/dist --target ES2020 --module ES2020 --moduleResolution bundler --strict --skipLibCheck && cp demo/index.html demo/dist/ && cp demo/style.css demo/dist/"
+    "demo:build": "mkdir -p demo/dist && node_modules/.bin/esbuild demo/main.ts --bundle --outfile=demo/dist/main.js --format=esm --target=es2020 && cp demo/index.html demo/dist/ && cp demo/style.css demo/dist/"
   },
   "devDependencies": {
+    "esbuild": "^0.21.0",
     "typescript": "^5.5.0"
   }
 }

@@ -144,3 +144,13 @@ jobs:
           name: ${{ steps.version.outputs.tag }}
           fail_on_unmatched_files: true
           files: dist/cpp-wasm-toolchain-${{ steps.version.outputs.version }}.tar.gz
+
+      # ── Update TOOLCHAIN_BASE_URL variable for Pages demo ─────────────────────
+
+      - name: Update TOOLCHAIN_BASE_URL repository variable
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          BASE_URL="https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.tag }}"
+          gh variable set TOOLCHAIN_BASE_URL --body "$BASE_URL"
+          echo "TOOLCHAIN_BASE_URL set to: $BASE_URL"
