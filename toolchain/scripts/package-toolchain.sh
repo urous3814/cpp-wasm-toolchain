@@ -57,6 +57,13 @@ done
 cp -r "$SYSROOT_OUT/include"         "$PKG_DIR/sysroot/"
 cp -r "$SYSROOT_OUT/lib/wasm32-wasi" "$PKG_DIR/sysroot/lib/"
 
+# Create sysroot.tar.gz inside the package so the browser worker can fetch
+# and unpack it into the emscripten virtual FS at runtime.
+echo "[package] creating sysroot.tar.gz"
+tar czf "$PKG_DIR/sysroot/sysroot.tar.gz" \
+    -C "$PKG_DIR/sysroot" \
+    include lib
+
 # Runtime shim
 cp "$RUNTIME_DIST/wasi-shim.js" "$PKG_DIR/runtime/"
 

@@ -50,7 +50,7 @@ emcmake cmake -G Ninja \
     -DCMAKE_BUILD_TYPE=MinSizeRel \
     -DLLVM_TABLEGEN="$HOST_LLVM/bin/llvm-tblgen" \
     -DCLANG_TABLEGEN="$HOST_LLVM/bin/clang-tblgen" \
-    -DCMAKE_EXE_LINKER_FLAGS="-sERROR_ON_UNDEFINED_SYMBOLS=0"
+    -DCMAKE_EXE_LINKER_FLAGS="-sERROR_ON_UNDEFINED_SYMBOLS=0 -sMODULARIZE=1 -sEXPORT_ES6=1 -sINVOKE_RUN=0 -sEXIT_RUNTIME=0 -sALLOW_MEMORY_GROWTH=1 -sENVIRONMENT='worker,node'"
 
 echo "[browser-llvm] building clang wasm"
 ninja -C "$BUILD" -j"${PARALLEL_JOBS:-$(nproc)}" clang
@@ -72,8 +72,29 @@ else
     exit 1
 fi
 
+# Copy emscripten ES module wrappers (.js → .mjs).
+# These are generated alongside .wasm when MODULARIZE=1 + EXPORT_ES6=1 flags are set.
+if [ -f "$BUILD/bin/clang.js" ]; then
+    cp "$BUILD/bin/clang.js" "$OUT/clang.mjs"
+    echo "[browser-llvm] copied clang.js → clang.mjs"
+else
+    echo "[browser-llvm] WARNING: clang.js not found; clang.mjs will be absent" >&2
+fi
+
+# wasm-ld may be named lld.js when built as the generic lld target
+for lld_js in "$BUILD/bin/wasm-ld.js" "$BUILD/bin/lld.js"; do
+    if [ -f "$lld_js" ]; then
+        cp "$lld_js" "$OUT/wasm-ld.mjs"
+        echo "[browser-llvm] copied $(basename "$lld_js") → wasm-ld.mjs"
+        break
+    fi
+done
+if [ ! -f "$OUT/wasm-ld.mjs" ]; then
+    echo "[browser-llvm] WARNING: lld.js / wasm-ld.js not found; wasm-ld.mjs will be absent" >&2
+fi
+
 if [ ! -f "$OUT/clang.wasm" ] || [ ! -f "$OUT/wasm-ld.wasm" ]; then
-    echo "[browser-llvm] ERROR: artifacts missing after build" >&2
+    echo "[browser-llvm] ERROR: core wasm artifacts missing after build" >&2
     exit 1
 fi
 
