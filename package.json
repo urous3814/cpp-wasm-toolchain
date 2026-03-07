@@ -12,7 +12,7 @@
     "test": "./toolchain/scripts/smoke-test.sh",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "smoke-test:ci": "node tests/smoke/runtime-smoke.mjs",
-    "demo:build": "mkdir -p demo/dist && node_modules/.bin/esbuild demo/main.ts --bundle --outfile=demo/dist/main.js --format=esm --target=es2020 && node_modules/.bin/esbuild packages/worker/src/worker.ts --bundle --outfile=demo/dist/worker.js --format=esm --target=es2020 && cp demo/index.html demo/dist/ && cp demo/style.css demo/dist/"
+    "demo:build": "pnpm --filter @cpp-wasm-toolchain/runtime run build && mkdir -p demo/dist && node_modules/.bin/esbuild demo/main.ts --bundle --outfile=demo/dist/main.js --format=esm --target=es2020 && node_modules/.bin/esbuild packages/worker/src/worker.ts --bundle --outfile=demo/dist/worker.js --format=esm --target=es2020 && cp demo/index.html demo/dist/ && cp demo/style.css demo/dist/"
   },
   "devDependencies": {
     "esbuild": "^0.21.0",
