@@ -249,7 +249,7 @@ All dependency versions are pinned in a single file:
 ```
 toolchain/config/versions.env
     LLVM_VERSION=18.1.0
-    WASI_SDK_VERSION=21
+    WASI_SDK_VERSION=30
     EMSDK_VERSION=3.1.64
     TOOLCHAIN_VERSION=0.1.0
 ```

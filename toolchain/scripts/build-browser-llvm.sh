@@ -49,16 +49,28 @@ emcmake cmake -G Ninja \
     -DLLVM_INCLUDE_BENCHMARKS=OFF \
     -DCMAKE_BUILD_TYPE=MinSizeRel \
     -DLLVM_TABLEGEN="$HOST_LLVM/bin/llvm-tblgen" \
-    -DCLANG_TABLEGEN="$HOST_LLVM/bin/clang-tblgen"
+    -DCLANG_TABLEGEN="$HOST_LLVM/bin/clang-tblgen" \
+    -DCMAKE_EXE_LINKER_FLAGS="-sERROR_ON_UNDEFINED_SYMBOLS=0"
 
 echo "[browser-llvm] building clang wasm"
 ninja -C "$BUILD" -j"${PARALLEL_JOBS:-$(nproc)}" clang
 
-echo "[browser-llvm] building wasm-ld wasm"
-ninja -C "$BUILD" -j"${PARALLEL_JOBS:-$(nproc)}" wasm-ld
+echo "[browser-llvm] building lld (wasm-ld) wasm"
+ninja -C "$BUILD" -j"${PARALLEL_JOBS:-$(nproc)}" lld
 
-cp "$BUILD/bin/clang.wasm"   "$OUT/clang.wasm"
-cp "$BUILD/bin/wasm-ld.wasm" "$OUT/wasm-ld.wasm"
+cp "$BUILD/bin/clang.wasm" "$OUT/clang.wasm"
+
+# In emscripten cross-compile, lld produces bin/lld.wasm; wasm-ld is a symlink/alias.
+# Copy whichever artifact exists as wasm-ld.wasm.
+if [ -f "$BUILD/bin/wasm-ld.wasm" ]; then
+    cp "$BUILD/bin/wasm-ld.wasm" "$OUT/wasm-ld.wasm"
+elif [ -f "$BUILD/bin/lld.wasm" ]; then
+    cp "$BUILD/bin/lld.wasm" "$OUT/wasm-ld.wasm"
+else
+    echo "[browser-llvm] ERROR: neither wasm-ld.wasm nor lld.wasm found in $BUILD/bin" >&2
+    ls "$BUILD/bin/"*.wasm 2>/dev/null || true
+    exit 1
+fi
 
 if [ ! -f "$OUT/clang.wasm" ] || [ ! -f "$OUT/wasm-ld.wasm" ]; then
     echo "[browser-llvm] ERROR: artifacts missing after build" >&2

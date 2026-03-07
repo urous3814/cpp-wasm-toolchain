@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "main": "src/wasi-shim.ts",
-  "types": "src/wasi-shim.ts"
+  "main": "dist/wasi-shim.js",
+  "types": "dist/wasi-shim.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  }
 }
