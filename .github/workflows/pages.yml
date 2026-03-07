@@ -57,8 +57,24 @@ jobs:
 
       - name: Build demo site
         env:
-          VITE_TOOLCHAIN_BASE_URL: ${{ vars.TOOLCHAIN_BASE_URL }}
-        run: pnpm demo:build
+          TOOLCHAIN_BASE_URL: ${{ vars.TOOLCHAIN_BASE_URL }}
+        run: |
+          pnpm demo:build
+          # esbuild does not resolve import.meta.env; replace fallback URL in the bundle
+          if [ -n "$TOOLCHAIN_BASE_URL" ]; then
+            python3 - <<'PY'
+import os, pathlib
+f = pathlib.Path('demo/dist/main.js')
+old = '/dist/cpp-wasm-toolchain/0.1.0'
+new = os.environ['TOOLCHAIN_BASE_URL']
+content = f.read_text()
+if old in content:
+    f.write_text(content.replace(old, new))
+    print(f'[demo] TOOLCHAIN_BASE_URL injected: {new}')
+else:
+    print(f'[demo] WARNING: fallback URL not found in bundle — check main.ts default')
+PY
+          fi
 
       - name: Configure Pages
         uses: actions/configure-pages@v4
