@@ -57,6 +57,19 @@ done
 cp -r "$SYSROOT_OUT/include"         "$PKG_DIR/sysroot/"
 cp -r "$SYSROOT_OUT/lib/wasm32-wasi" "$PKG_DIR/sysroot/lib/"
 
+# Strip Node.js-specific imports from emscripten ES module output.
+# When ENVIRONMENT includes 'node', emscripten emits:
+#   import { createRequire } from 'module';
+# which causes "Failed to resolve module specifier 'module'" in browsers.
+echo "[package] patching .mjs files to remove Node.js imports"
+for mjs in "$PKG_DIR/compiler/clang.mjs" "$PKG_DIR/linker/wasm-ld.mjs"; do
+    [ -f "$mjs" ] || continue
+    sed -i '/import.*createRequire.*from.*['"'"'"]module['"'"'"]/d' "$mjs"
+    sed -i '/^\s*var require\s*=\s*createRequire/d' "$mjs"
+    sed -i '/^\s*const require\s*=\s*createRequire/d' "$mjs"
+    echo "[package] patched $(basename "$mjs")"
+done
+
 # Create sysroot.tar.gz inside the package so the browser worker can fetch
 # and unpack it into the emscripten virtual FS at runtime.
 echo "[package] creating sysroot.tar.gz"
