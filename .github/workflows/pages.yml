@@ -62,18 +62,7 @@ jobs:
           pnpm demo:build
           # esbuild does not resolve import.meta.env; replace fallback URL in the bundle
           if [ -n "$TOOLCHAIN_BASE_URL" ]; then
-            python3 -c "
-import os, pathlib
-f = pathlib.Path('demo/dist/main.js')
-old = '/dist/cpp-wasm-toolchain/0.1.0'
-new = os.environ['TOOLCHAIN_BASE_URL']
-content = f.read_text()
-if old in content:
-    f.write_text(content.replace(old, new))
-    print('[demo] TOOLCHAIN_BASE_URL injected: ' + new)
-else:
-    print('[demo] WARNING: fallback URL not found in bundle')
-"
+            python3 -c "import os,pathlib; f=pathlib.Path('demo/dist/main.js'); old='/dist/cpp-wasm-toolchain/0.1.0'; new=os.environ['TOOLCHAIN_BASE_URL']; t=f.read_text(); f.write_text(t.replace(old,new)); print('[demo] injected: '+new)"
           fi
 
       - name: Configure Pages
