@@ -1,0 +1,91 @@
+name: Upload flat release assets
+
+# Temporary workflow: downloads an existing release tarball and re-uploads
+# key files as flat release assets so the browser demo can fetch them
+# directly from GitHub Releases CDN.
+#
+# Uploaded assets:
+#   clang.wasm       (from compiler/clang.wasm)
+#   wasm-ld.wasm     (from linker/wasm-ld.wasm)
+#   wasi-shim.js     (from runtime/wasi-shim.js)
+#   manifest.json    (flat-path version, generated here)
+#
+# Usage: Actions → "Upload flat release assets" → Run workflow → enter tag
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (e.g. v0.1.2)'
+        required: true
+        default: 'v0.1.2'
+
+permissions:
+  contents: write
+
+jobs:
+  upload-assets:
+    name: Extract tarball and upload flat assets
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download release tarball
+        run: |
+          TAG="${{ github.event.inputs.tag }}"
+          VERSION="${TAG#v}"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
+
+          curl -L \
+            -o toolchain.tar.gz \
+            "https://github.com/${{ github.repository }}/releases/download/${TAG}/cpp-wasm-toolchain-${VERSION}.tar.gz"
+
+      - name: Extract tarball
+        run: |
+          mkdir -p extracted
+          tar xzf toolchain.tar.gz -C extracted --strip-components=1
+          echo "Extracted contents:"
+          find extracted -type f | sort
+
+      - name: Generate flat manifest.json
+        run: |
+          BASE="https://github.com/${{ github.repository }}/releases/download/${TAG}"
+          cat > flat-manifest.json <<EOF
+          {
+            "name": "cpp-wasm-toolchain",
+            "version": "${VERSION}",
+            "target": "wasm32-wasi",
+            "abi": "wasi-preview1",
+            "baseUrl": "${BASE}",
+            "compiler": {
+              "wasm": "clang.wasm"
+            },
+            "linker": {
+              "wasm": "wasm-ld.wasm"
+            },
+            "runtime": {
+              "entry": "wasi-shim.js"
+            }
+          }
+          EOF
+          python3 -m json.tool flat-manifest.json > manifest.json
+          cat manifest.json
+
+      - name: Upload assets to GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Delete existing assets if re-running (ignore errors)
+          for asset in clang.wasm wasm-ld.wasm wasi-shim.js manifest.json; do
+            gh release delete-asset "${TAG}" "$asset" --yes 2>/dev/null || true
+          done
+
+          gh release upload "${TAG}" \
+            extracted/compiler/clang.wasm#clang.wasm \
+            extracted/linker/wasm-ld.wasm#wasm-ld.wasm \
+            extracted/runtime/wasi-shim.js#wasi-shim.js \
+            manifest.json#manifest.json
+
+          echo ""
+          echo "Assets uploaded. Base URL for demo:"
+          echo "https://github.com/${{ github.repository }}/releases/download/${TAG}"
