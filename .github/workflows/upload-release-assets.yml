@@ -29,6 +29,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Download release tarball
         run: |
           TAG="${{ github.event.inputs.tag }}"
