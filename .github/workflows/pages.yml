@@ -55,24 +55,24 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Download toolchain assets into Pages site
+      - name: Download and extract toolchain into Pages site
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           # Server-side download avoids browser CORS restrictions on GitHub Releases.
-          # Files land in demo/dist/toolchain/ and are served from GitHub Pages.
-          mkdir -p demo/dist/toolchain
+          # Extract the full tarball so the original manifest paths are preserved.
           TAG=$(gh release list --limit 1 --json tagName -q '.[0].tagName')
-          echo "[pages] downloading toolchain assets from release $TAG"
+          VERSION="${TAG#v}"
+          echo "[pages] downloading cpp-wasm-toolchain-${VERSION}.tar.gz from release $TAG"
           gh release download "$TAG" \
-            --pattern 'manifest.json' \
-            --pattern 'clang.wasm' \
-            --pattern 'wasm-ld.wasm' \
-            --pattern 'wasi-shim.js' \
-            --dir demo/dist/toolchain \
+            --pattern "cpp-wasm-toolchain-${VERSION}.tar.gz" \
             --clobber
-          echo "[pages] toolchain assets:"
-          ls -lh demo/dist/toolchain/
+          mkdir -p demo/dist/toolchain
+          tar xzf "cpp-wasm-toolchain-${VERSION}.tar.gz" \
+            -C demo/dist/toolchain \
+            --strip-components=1
+          echo "[pages] extracted toolchain:"
+          ls demo/dist/toolchain/
 
       - name: Build demo site
         env:
