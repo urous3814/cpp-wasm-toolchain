@@ -60,8 +60,11 @@ function requireDir(rel) {
 
 let valid = true
 valid = requireFile('compiler/clang.wasm') && valid
+valid = requireFile('compiler/clang.mjs') && valid
 valid = requireFile('linker/wasm-ld.wasm') && valid
+valid = requireFile('linker/wasm-ld.mjs') && valid
 valid = requireFile('runtime/wasi-shim.js') && valid
+valid = requireFile('sysroot/sysroot.tar.gz') && valid
 valid = requireDir('sysroot/include') && valid
 valid = requireDir('sysroot/lib/wasm32-wasi') && valid
 

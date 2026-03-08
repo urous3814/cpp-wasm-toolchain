@@ -115,6 +115,8 @@ async function initToolchain(): Promise<void> {
 
 // ── Worker init ───────────────────────────────────────────────────────────────
 
+let workerClient: WorkerClient | null = null
+
 function initWorker(): WorkerClient | null {
   try {
     const client = new WorkerClient('./worker.js')
@@ -135,10 +137,47 @@ function initWorker(): WorkerClient | null {
       }
     })
 
+    // ── Compile responses ─────────────────────────────────────────────────────
+
+    client.on('compile:ok', (msg) => {
+      if (msg.type !== 'compile:ok') return
+      if (msg.diagnostics) stderrEl.textContent += msg.diagnostics
+      setStatus('Running…')
+      client.send({ type: 'run', wasmBytes: msg.wasmBytes })
+    })
+
+    client.on('compile:error', (msg) => {
+      if (msg.type !== 'compile:error') return
+      stderrEl.textContent = msg.diagnostics
+      setStatus('Compile error', false)
+      runBtn.disabled = false
+    })
+
+    // ── Run responses ─────────────────────────────────────────────────────────
+
+    client.on('run:stdout', (msg) => {
+      if (msg.type !== 'run:stdout') return
+      stdoutEl.textContent += msg.text
+    })
+
+    client.on('run:stderr', (msg) => {
+      if (msg.type !== 'run:stderr') return
+      stderrEl.textContent += msg.text
+    })
+
+    client.on('run:done', (msg) => {
+      if (msg.type !== 'run:done') return
+      const label = msg.timedOut
+        ? `Timed out after ${msg.durationMs}ms`
+        : `Done — exit ${msg.exitCode} (${msg.durationMs}ms)`
+      setStatus(label, msg.exitCode === 0 && !msg.timedOut)
+      runBtn.disabled = false
+    })
+
     client.on('error', (msg) => {
-      if (msg.type === 'error') {
-        setInfo(workerInfoEl, `Worker error: ${msg.message}`, 'err')
-      }
+      if (msg.type !== 'error') return
+      setInfo(workerInfoEl, `Worker error: ${msg.message}`, 'err')
+      runBtn.disabled = false
     })
 
     return client
@@ -151,20 +190,20 @@ function initWorker(): WorkerClient | null {
 // ── Run handler ───────────────────────────────────────────────────────────────
 
 async function handleRun(): Promise<void> {
+  if (!workerClient) {
+    setStatus('Worker not available', false)
+    return
+  }
+
   clearOutput()
   runBtn.disabled = true
   setStatus('Compiling…')
 
-  try {
-    // TODO(M5): send compile request to worker with codeEl.value
-    stderrEl.textContent = '[demo] Compile/run not yet wired. Worker and toolchain are ready.'
-    setStatus('Pending compile wiring')
-  } catch (e) {
-    stderrEl.textContent = String(e)
-    setStatus('Error', false)
-  } finally {
-    runBtn.disabled = false
-  }
+  workerClient.send({
+    type: 'compile',
+    source: codeEl.value,
+    filename: 'main.cpp',
+  })
 }
 
 // ── Example buttons ───────────────────────────────────────────────────────────
@@ -185,4 +224,4 @@ runBtn.addEventListener('click', handleRun)
 codeEl.value = EXAMPLES['hello.cpp']
 
 initToolchain()
-initWorker()
+workerClient = initWorker()

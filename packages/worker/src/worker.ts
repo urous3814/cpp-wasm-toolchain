@@ -6,6 +6,8 @@
  */
 
 import { loadManifest, resolveToolchain, LoadedToolchain } from '@cpp-wasm-toolchain/loader'
+import { runWasiProgram } from '@cpp-wasm-toolchain/runtime'
+import { compileCpp, linkWasm } from './compiler'
 import type {
   WorkerRequest,
   WorkerResponse,
@@ -34,17 +36,54 @@ async function handleInit(req: InitRequest): Promise<void> {
   send({ type: 'init:ok', version: toolchain.manifest.version })
 }
 
-// TODO(compile): instantiate clang.wasm, pipe source through compiler,
-//               run wasm-ld, return linked binary.
-async function handleCompile(_req: CompileRequest): Promise<void> {
-  send({ type: 'compile:error', diagnostics: '[worker] compile not yet implemented' })
+async function handleCompile(req: CompileRequest): Promise<void> {
+  const tc = toolchain!
+
+  const compileResult = await compileCpp(
+    tc,
+    req.source,
+    req.filename,
+    req.flags ?? [],
+  )
+
+  if (!compileResult.ok) {
+    send({ type: 'compile:error', diagnostics: compileResult.diagnostics })
+    return
+  }
+
+  const linkResult = await linkWasm(tc, compileResult.objectBytes)
+
+  if (!linkResult.ok) {
+    const diag = [compileResult.diagnostics, linkResult.diagnostics].filter(Boolean).join('\n')
+    send({ type: 'compile:error', diagnostics: diag })
+    return
+  }
+
+  const combinedDiag = [compileResult.diagnostics, linkResult.diagnostics].filter(Boolean).join('\n')
+  send({
+    type: 'compile:ok',
+    wasmBytes: linkResult.wasmBytes.buffer as ArrayBuffer,
+    diagnostics: combinedDiag,
+  })
 }
 
-// TODO(run): instantiate the provided wasm binary via runWasiProgram,
-//            stream stdout/stderr, return run:done.
-async function handleRun(_req: RunRequest): Promise<void> {
-  send({ type: 'run:done', exitCode: 1, timedOut: false, durationMs: 0 })
-  send({ type: 'error', message: '[worker] run not yet implemented' })
+async function handleRun(req: RunRequest): Promise<void> {
+  const t0 = Date.now()
+
+  const result = await runWasiProgram({
+    wasmModule: req.wasmBytes,
+    stdin: req.stdin ?? '',
+    timeoutMs: req.timeoutMs ?? 10_000,
+    onStdout: (chunk) => send({ type: 'run:stdout', text: chunk }),
+    onStderr: (chunk) => send({ type: 'run:stderr', text: chunk }),
+  })
+
+  send({
+    type: 'run:done',
+    exitCode: result.exitCode,
+    timedOut: result.timedOut,
+    durationMs: Date.now() - t0,
+  })
 }
 
 // ── Message dispatcher ────────────────────────────────────────────────────────

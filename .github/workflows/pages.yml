@@ -55,10 +55,35 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Download and extract toolchain into Pages site
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Server-side download avoids browser CORS restrictions on GitHub Releases.
+          # Extract the full tarball so the original manifest paths are preserved.
+          TAG=$(gh release list --limit 1 --json tagName -q '.[0].tagName')
+          VERSION="${TAG#v}"
+          echo "[pages] downloading cpp-wasm-toolchain-${VERSION}.tar.gz from release $TAG"
+          gh release download "$TAG" \
+            --pattern "cpp-wasm-toolchain-${VERSION}.tar.gz" \
+            --clobber
+          mkdir -p demo/dist/toolchain
+          tar xzf "cpp-wasm-toolchain-${VERSION}.tar.gz" \
+            -C demo/dist/toolchain \
+            --strip-components=1
+          echo "[pages] extracted toolchain:"
+          ls demo/dist/toolchain/
+
       - name: Build demo site
         env:
-          VITE_TOOLCHAIN_BASE_URL: ${{ vars.TOOLCHAIN_BASE_URL }}
-        run: pnpm demo:build
+          REPO_OWNER: ${{ github.repository_owner }}
+          REPO_NAME: ${{ github.event.repository.name }}
+        run: |
+          TOOLCHAIN_BASE_URL="https://${REPO_OWNER}.github.io/${REPO_NAME}/toolchain"
+          echo "[pages] TOOLCHAIN_BASE_URL=$TOOLCHAIN_BASE_URL"
+          pnpm demo:build
+          # esbuild does not resolve import.meta.env; replace fallback URL in the bundle
+          python3 -c "import os,pathlib; f=pathlib.Path('demo/dist/main.js'); old='/dist/cpp-wasm-toolchain/0.1.0'; new='${TOOLCHAIN_BASE_URL}'; t=f.read_text(); f.write_text(t.replace(old,new)); print('[demo] injected: '+new)"
 
       - name: Configure Pages
         uses: actions/configure-pages@v4
